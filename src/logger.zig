@@ -9,26 +9,15 @@ const std = @import("std");
 pub const LogLevel = enum {
     info,
     warning,
-    error,
+    err,
     debug,
 };
 
 /// Logs a formatted message.
-///
-/// If `is_daemon` is true, it outputs a single-line JSON object (JSONL)
-/// adhering to a simple structured schema (`timestamp`, `level`, `message`).
-/// Otherwise, it outputs a standard bracketed plaintext format.
-///
-/// * `allocator`: Memory allocator used to format the message string.
-/// * `is_daemon`: Whether to use JSONL daemon output mode.
-/// * `level`: The log severity level.
-/// * `fmt`: The format string.
-/// * `args`: The arguments to interpolate into the format string.
 pub fn log(allocator: std.mem.Allocator, is_daemon: bool, level: LogLevel, comptime fmt: []const u8, args: anytype) void {
     const out = std.io.getStdOut().writer();
     
     if (is_daemon) {
-        // We catch errors silently here to avoid crashing the daemon on logging failure
         const msg = std.fmt.allocPrint(allocator, fmt, args) catch return;
         defer allocator.free(msg);
         
@@ -39,22 +28,16 @@ pub fn log(allocator: std.mem.Allocator, is_daemon: bool, level: LogLevel, compt
         };
         
         std.json.stringify(log_obj, .{}, out) catch return;
-        out.writeByte('
-') catch return;
+        out.writeByte('\n') catch return;
     } else {
         out.print("[{s}] ", .{@tagName(level)}) catch return;
         out.print(fmt, args) catch return;
-        out.writeByte('
-') catch return;
+        out.writeByte('\n') catch return;
     }
 }
 
 test "logger formats and writes" {
     const allocator = std.testing.allocator;
-    
-    // Test plaintext
     log(allocator, false, .info, "Testing plain {s}", .{"message"});
-    
-    // Test JSONL
     log(allocator, true, .warning, "Testing json {s} number {d}", .{"format", 42});
 }

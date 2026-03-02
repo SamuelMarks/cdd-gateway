@@ -31,8 +31,7 @@ pub fn main() !void {
 
     // Parse CLI arguments
     const config = cli.parseArgs(allocator, args.items) catch |err| {
-        std.debug.print("Failed to parse arguments: {}
-", .{err});
+        std.debug.print("Failed to parse arguments: {}\n", .{err});
         std.process.exit(1);
     };
     defer allocator.free(config.pass_through_args);
@@ -96,12 +95,12 @@ pub fn main() !void {
             
             var proc = process.ManagedProcess.init(allocator, cmd.items);
             proc.start() catch |err| {
-                logger.log(allocator, config.daemon, .error, "Failed to start language process {s}: {}", .{exe_name, err});
+                logger.log(allocator, config.daemon, .err, "Failed to start language process {s}: {}", .{exe_name, err});
                 return;
             };
             
             _ = proc.wait() catch |err| {
-                logger.log(allocator, config.daemon, .error, "Error waiting on process: {}", .{err});
+                logger.log(allocator, config.daemon, .err, "Error waiting on process: {}", .{err});
                 return;
             };
             

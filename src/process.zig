@@ -129,7 +129,7 @@ pub const ManagedProcess = struct {
 test "ManagedProcess lifecycle initialization" {
     const allocator = std.testing.allocator;
     const argv = &[_][]const u8{"echo", "test"};
-    var process = ManagedProcess.init(allocator, argv);
+    const process = ManagedProcess.init(allocator, argv);
 
     try std.testing.expectEqual(ProcessState.stopped, process.state);
 }
