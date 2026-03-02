@@ -13,8 +13,12 @@ pub const server = @import("server.zig");
 /// Exposes the cross-platform systemd/initd process management interfaces.
 pub const process = @import("process.zig");
 
+/// Exposes structured logging tools for daemonizing processes.
+pub const logger = @import("logger.zig");
+
 test "SDK root module validation" {
     _ = cli;
     _ = server;
     _ = process;
+    _ = logger;
 }

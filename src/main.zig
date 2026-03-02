@@ -8,6 +8,7 @@ const root = @import("root.zig");
 const cli = root.cli;
 const server = root.server;
 const process = root.process;
+const logger = root.logger;
 
 /// The main entry point for the compiled executable.
 pub fn main() !void {
@@ -38,39 +39,33 @@ pub fn main() !void {
 
     // Route command logic
     if (config.start_server) {
-        std.debug.print("Starting cdd-ctl JSON-RPC Server on port {}...
-", .{config.port});
+        logger.log(allocator, config.daemon, .info, "Starting cdd-ctl JSON-RPC Server on port {d}...", .{config.port});
         var rpc_server = server.RpcServer.init(config.port);
         try rpc_server.start();
         defer rpc_server.stop();
         // Server would block here in a real implementation
     } else {
         if (config.language) |lang| {
-            std.debug.print("Routing request to language ecosystem: {s}
-", .{@tagName(lang)});
+            logger.log(allocator, config.daemon, .info, "Routing request to language ecosystem: {s}", .{@tagName(lang)});
         }
         
         if (config.component_type) |ctype| {
-            std.debug.print("Component targeted: {s}
-", .{@tagName(ctype)});
+            logger.log(allocator, config.daemon, .info, "Component targeted: {s}", .{@tagName(ctype)});
         }
         
         if (config.remote_server) |remote_uri| {
-            std.debug.print("Forwarding request to remote server: {s}
-", .{remote_uri});
+            logger.log(allocator, config.daemon, .info, "Forwarding request to remote server: {s}", .{remote_uri});
             // HTTP client dispatch would go here
             return;
         }
         
         if (config.socket_path) |sock| {
-            std.debug.print("Forwarding request to local socket: {s}
-", .{sock});
+            logger.log(allocator, config.daemon, .info, "Forwarding request to local socket: {s}", .{sock});
             // Unix Domain Socket or Named Pipe dispatch would go here
             return;
         }
 
-        std.debug.print("Executing pass-through toolchain arguments...
-", .{});
+        logger.log(allocator, config.daemon, .info, "Executing pass-through toolchain arguments...", .{});
         
         if (config.language != null and config.component_type != null) {
             // Build pseudo command based on requested language
@@ -101,19 +96,16 @@ pub fn main() !void {
             
             var proc = process.ManagedProcess.init(allocator, cmd.items);
             proc.start() catch |err| {
-                std.debug.print("Failed to start language process {s}: {}
-", .{exe_name, err});
+                logger.log(allocator, config.daemon, .error, "Failed to start language process {s}: {}", .{exe_name, err});
                 return;
             };
             
             _ = proc.wait() catch |err| {
-                std.debug.print("Error waiting on process: {}
-", .{err});
+                logger.log(allocator, config.daemon, .error, "Error waiting on process: {}", .{err});
                 return;
             };
             
-            std.debug.print("Process finished with stats: Starts={}, Crashes={}, Flakiness={d:.2}%
-", .{
+            logger.log(allocator, config.daemon, .info, "Process finished with stats: Starts={d}, Crashes={d}, Flakiness={d:.2}%", .{
                 proc.stats.start_count,
                 proc.stats.crash_count,
                 proc.stats.flakiness()

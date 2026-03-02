@@ -37,6 +37,7 @@ Central command-line interface, SDK, and JSON-RPC over HTTP server for the `cdd-
 For detailed guides on utilizing the `cdd-*` architecture and configuring this tool, refer to our comprehensive documentation:
 - [**Architecture Guide**](ARCHITECTURE.md)
 - [**Usage Guide**](USAGE.md)
+- [**Daemon & Service Deployment Guide**](DEPLOYMENT.md)
 - [**Developing & Contributing**](DEVELOPING.md)
 
 ### CLI

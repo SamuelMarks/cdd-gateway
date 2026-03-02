@@ -59,6 +59,8 @@ pub const CliConfig = struct {
     remote_server: ?[]const u8 = null,
     /// Optional path to an already running socket.
     socket_path: ?[]const u8 = null,
+    /// Whether to run in daemon mode (enables structured JSONL logging).
+    daemon: bool = false,
     /// The unparsed remaining arguments intended for the underlying `cdd-*` tool.
     pass_through_args: [][]const u8,
 };
@@ -71,6 +73,7 @@ pub const JsonConfig = struct {
     port: ?u16 = null,
     remote_server: ?[]const u8 = null,
     socket_path: ?[]const u8 = null,
+    daemon: ?bool = null,
 };
 
 /// Parses a slice of string arguments into a `CliConfig`.
@@ -113,6 +116,8 @@ pub fn parseArgs(allocator: std.mem.Allocator, args: []const []const u8) !CliCon
             i += 1; // Already processed
         } else if (std.mem.eql(u8, arg, "--server")) {
             config.start_server = true;
+        } else if (std.mem.eql(u8, arg, "--daemon")) {
+            config.daemon = true;
         } else if (std.mem.eql(u8, arg, "--port") and i + 1 < args.len) {
             i += 1;
             config.port = try std.fmt.parseInt(u16, args[i], 10);
@@ -171,6 +176,7 @@ fn applyConfigFile(allocator: std.mem.Allocator, path: []const u8, config: *CliC
     }
     if (j.start_server) |srv| config.start_server = srv;
     if (j.port) |p| config.port = p;
+    if (j.daemon) |d| config.daemon = d;
     
     // For strings, we must duplicate because `content` is freed at end of function
     if (j.remote_server) |rs| {
@@ -206,12 +212,13 @@ test "parseArgs parses remote server and socket path" {
 
 test "parseArgs parses server and port" {
     const allocator = std.testing.allocator;
-    const args = &[_][]const u8{ "--server", "--port", "9090" };
+    const args = &[_][]const u8{ "--server", "--port", "9090", "--daemon" };
 
     const config = try parseArgs(allocator, args);
     defer allocator.free(config.pass_through_args);
 
     try std.testing.expect(config.start_server);
+    try std.testing.expect(config.daemon);
     try std.testing.expectEqual(@as(u16, 9090), config.port);
 }
 
