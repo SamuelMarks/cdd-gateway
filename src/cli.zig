@@ -63,6 +63,16 @@ pub const CliConfig = struct {
     pass_through_args: [][]const u8,
 };
 
+/// Raw JSON configuration structure.
+pub const JsonConfig = struct {
+    language: ?[]const u8 = null,
+    component_type: ?[]const u8 = null,
+    start_server: ?bool = null,
+    port: ?u16 = null,
+    remote_server: ?[]const u8 = null,
+    socket_path: ?[]const u8 = null,
+};
+
 /// Parses a slice of string arguments into a `CliConfig`.
 /// The caller owns the memory of `pass_through_args` which borrows from the input slice.
 ///
@@ -76,17 +86,39 @@ pub fn parseArgs(allocator: std.mem.Allocator, args: []const []const u8) !CliCon
     var pass_through = std.ArrayList([]const u8).init(allocator);
     errdefer pass_through.deinit();
 
+    var config_file_path: ?[]const u8 = null;
+
+    // First pass to check for --config
     var i: usize = 0;
+    while (i < args.len) : (i += 1) {
+        if (std.mem.eql(u8, args[i], "--config") and i + 1 < args.len) {
+            config_file_path = args[i + 1];
+            break;
+        } else if (std.mem.eql(u8, args[i], "--")) {
+            break;
+        }
+    }
+
+    // Try applying config file if provided
+    if (config_file_path) |path| {
+        try applyConfigFile(allocator, path, &config);
+    }
+
+    // Second pass to apply CLI overrides
+    i = 0;
     while (i < args.len) : (i += 1) {
         const arg = args[i];
 
-        if (std.mem.eql(u8, arg, "--server")) {
+        if (std.mem.eql(u8, arg, "--config") and i + 1 < args.len) {
+            i += 1; // Already processed
+        } else if (std.mem.eql(u8, arg, "--server")) {
             config.start_server = true;
         } else if (std.mem.eql(u8, arg, "--port") and i + 1 < args.len) {
             i += 1;
             config.port = try std.fmt.parseInt(u16, args[i], 10);
         } else if (std.mem.eql(u8, arg, "--remote-server") and i + 1 < args.len) {
             i += 1;
+            // Overwrite JSON value if it exists, use input slice
             config.remote_server = args[i];
         } else if (std.mem.eql(u8, arg, "--socket") and i + 1 < args.len) {
             i += 1;
@@ -111,6 +143,42 @@ pub fn parseArgs(allocator: std.mem.Allocator, args: []const []const u8) !CliCon
 
     config.pass_through_args = try pass_through.toOwnedSlice();
     return config;
+}
+
+/// Applies settings from a JSON config file into a `CliConfig`.
+fn applyConfigFile(allocator: std.mem.Allocator, path: []const u8, config: *CliConfig) !void {
+    const file = std.fs.cwd().openFile(path, .{}) catch |err| {
+        if (err == error.FileNotFound) return error.ConfigFileNotFound;
+        return err;
+    };
+    defer file.close();
+
+    const file_size = try file.getEndPos();
+    if (file_size > 1024 * 1024) return error.ConfigFileTooLarge; // Max 1MB
+    const content = try file.readToEndAlloc(allocator, @intCast(file_size));
+    defer allocator.free(content);
+
+    const parsed = try std.json.parseFromSlice(JsonConfig, allocator, content, .{ .ignore_unknown_fields = true });
+    defer parsed.deinit();
+
+    const j = parsed.value;
+
+    if (j.language) |lang| {
+        config.language = std.meta.stringToEnum(Language, lang) orelse return error.UnknownLanguageInConfig;
+    }
+    if (j.component_type) |ctype| {
+        config.component_type = std.meta.stringToEnum(ComponentType, ctype) orelse return error.UnknownComponentTypeInConfig;
+    }
+    if (j.start_server) |srv| config.start_server = srv;
+    if (j.port) |p| config.port = p;
+    
+    // For strings, we must duplicate because `content` is freed at end of function
+    if (j.remote_server) |rs| {
+        config.remote_server = try allocator.dupe(u8, rs);
+    }
+    if (j.socket_path) |sp| {
+        config.socket_path = try allocator.dupe(u8, sp);
+    }
 }
 
 test "parseArgs parses language and component type" {
@@ -157,4 +225,57 @@ test "parseArgs handles unknown component type error" {
     const allocator = std.testing.allocator;
     const args = &[_][]const u8{ "--type", "magic_box" };
     try std.testing.expectError(error.UnknownComponentType, parseArgs(allocator, args));
+}
+
+test "parseArgs reads config file" {
+    const allocator = std.testing.allocator;
+    const tmp_path = "test_config.json";
+    
+    const file = try std.fs.cwd().createFile(tmp_path, .{});
+    const json_content = 
+        \\{
+        \\  "language": "python",
+        \\  "component_type": "client",
+        \\  "start_server": true,
+        \\  "port": 3000
+        \\}
+    ;
+    try file.writeAll(json_content);
+    file.close();
+    
+    defer std.fs.cwd().deleteFile(tmp_path) catch {};
+
+    const args = &[_][]const u8{ "--config", tmp_path };
+    const config = try parseArgs(allocator, args);
+    defer allocator.free(config.pass_through_args);
+    
+    try std.testing.expectEqual(Language.python, config.language.?);
+    try std.testing.expectEqual(ComponentType.client, config.component_type.?);
+    try std.testing.expect(config.start_server);
+    try std.testing.expectEqual(@as(u16, 3000), config.port);
+}
+
+test "parseArgs config file CLI override" {
+    const allocator = std.testing.allocator;
+    const tmp_path = "test_override.json";
+    
+    const file = try std.fs.cwd().createFile(tmp_path, .{});
+    const json_content = 
+        \\{
+        \\  "language": "python",
+        \\  "port": 3000
+        \\}
+    ;
+    try file.writeAll(json_content);
+    file.close();
+    
+    defer std.fs.cwd().deleteFile(tmp_path) catch {};
+
+    // Override port to 8080 and change language to go via CLI
+    const args = &[_][]const u8{ "--config", tmp_path, "--port", "8080", "--language", "go" };
+    const config = try parseArgs(allocator, args);
+    defer allocator.free(config.pass_through_args);
+    
+    try std.testing.expectEqual(Language.go, config.language.?);
+    try std.testing.expectEqual(@as(u16, 8080), config.port);
 }

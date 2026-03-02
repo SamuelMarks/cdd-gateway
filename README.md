@@ -34,12 +34,25 @@ Central command-line interface, SDK, and JSON-RPC over HTTP server for the `cdd-
 
 ## Usage
 
+For detailed guides on utilizing the `cdd-*` architecture and configuring this tool, refer to our comprehensive documentation:
+- [**Architecture Guide**](ARCHITECTURE.md)
+- [**Usage Guide**](USAGE.md)
+- [**Developing & Contributing**](DEVELOPING.md)
+
 ### CLI
 
 Route a command to a specific language server/client:
 
 ```bash
 cdd-ctl --language cpp --type client_cli -- [additional_args...]
+```
+
+### Config File
+
+Alternatively, manage defaults via a `.json` configuration file:
+
+```bash
+cdd-ctl --config ./cdd-ctl.json -- [additional_args...]
 ```
 
 ### JSON-RPC Server
