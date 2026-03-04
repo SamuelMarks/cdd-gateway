@@ -1,23 +1,35 @@
 repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+-   repo: local
     hooks:
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
-      - id: check-yaml
-      - id: check-added-large-files
-  - repo: local
-    hooks:
-      - id: zig-fmt
-        name: zig fmt
-        entry: zig fmt
+    -   id: cargo-fmt
+        name: cargo fmt
+        description: Format files with rustfmt.
+        entry: bash -c 'cargo fmt --all -- --check || (cargo fmt --all && exit 1)'
         language: system
-        types: [file]
-        files: \.zig$
-      - id: zig-test
-        name: zig test
-        entry: zig build test
-        language: system
-        types: [file]
-        files: \.zig$
+        types: [rust]
         pass_filenames: false
+
+    -   id: cargo-check
+        name: cargo check
+        description: Check the package for errors.
+        entry: cargo check --workspace
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+    -   id: cargo-test
+        name: cargo test
+        description: Run tests.
+        entry: cargo test --workspace
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+    -   id: coverage-shields
+        name: Update Coverage Shields
+        description: Run tarpaulin and update README.md shields
+        entry: bash -c './scripts/update_shields.sh'
+        language: system
+        types: [rust]
+        pass_filenames: false
+        always_run: true

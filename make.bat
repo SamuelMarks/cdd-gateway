@@ -1,93 +1,88 @@
 @echo off
-setlocal EnableDelayedExpansion
+setlocal
 
 set TARGET=%1
 if "%TARGET%"=="" set TARGET=help
 
-if "%TARGET%"=="help" goto help
-if "%TARGET%"=="all" goto help
-if "%TARGET%"=="install_base" goto install_base
-if "%TARGET%"=="install_deps" goto install_deps
-if "%TARGET%"=="build_docs" goto build_docs
-if "%TARGET%"=="build" goto build
-if "%TARGET%"=="test" goto test
-if "%TARGET%"=="run" goto run
-if "%TARGET%"=="build_docker" goto build_docker
-if "%TARGET%"=="run_docker" goto run_docker
+if "%DOCS_DIR%"=="" set DOCS_DIR=docs
+if "%BIN_DIR%"=="" set BIN_DIR=bin
 
-echo Unknown target: %TARGET%
-goto help
+if /I "%TARGET%"=="help" goto help
+if /I "%TARGET%"=="all" goto help
+if /I "%TARGET%"=="install_base" goto install_base
+if /I "%TARGET%"=="install_deps" goto install_deps
+if /I "%TARGET%"=="build_docs" goto build_docs
+if /I "%TARGET%"=="build" goto build
+if /I "%TARGET%"=="test" goto test
+if /I "%TARGET%"=="run" goto run
+if /I "%TARGET%"=="build_docker" goto build_docker
+if /I "%TARGET%"=="run_docker" goto run_docker
 
 :help
-echo Available tasks:
-echo   install_base     Install language runtime (Zig) and native deps
-echo   install_deps     Install local dependencies (none required for Zig)
-echo   build_docs [dir] Build API docs. Optional alternative dir (default: docs)
-echo   build [dir]      Build CLI binary. Optional alternative dir (default: zig-out\bin)
-echo   test             Run tests locally
-echo   run [args...]    Build and run the CLI. Appends any args to the CLI.
-echo   build_docker     Build Alpine and Debian Docker images
-echo   run_docker       Run and test Docker images locally
-goto :eof
+echo Available commands:
+echo   install_base   - Install language runtime (Rust, Node.js, etc.)
+echo   install_deps   - Install local dependencies (cargo build, npm install)
+echo   build_docs     - Build the API docs and put them in the specified directory
+echo   build          - Build the cdd-ctl backend and package all cdd-* WASM projects
+echo   test           - Run tests locally
+echo   run            - Run the API server and the Angular frontend (ng serve)
+echo   build_docker   - Build alpine and debian Docker images
+echo   run_docker     - Run the docker image, test the API, and stop
+goto end
 
 :install_base
-echo Installing Zig...
-echo Please use winget: winget install -e --id zig.zig
-goto :eof
+echo Installing base tools on Windows...
+echo Download Rust from https://rustup.rs/
+echo Download Node.js from https://nodejs.org/
+goto end
 
 :install_deps
-echo No external packages to install. Zig manages deps internally via build.zig.zon.
-goto :eof
+echo Installing local dependencies...
+cargo fetch
+goto end
 
 :build_docs
-set DOCS_DIR=%2
-if "%DOCS_DIR%"=="" set DOCS_DIR=docs
-zig build docs --prefix %DOCS_DIR%
-goto :eof
+echo Building API docs into %DOCS_DIR%...
+mkdir %DOCS_DIR% 2>nul
+cargo doc --no-deps --target-dir %DOCS_DIR%
+goto end
 
 :build
-set BIN_DIR=%2
-if "%BIN_DIR%"=="" set BIN_DIR=zig-out\bin
-zig build -Doptimize=ReleaseSafe --prefix %BIN_DIR%
-goto :eof
+echo Building cdd-ctl Rust server...
+cargo build --release
+mkdir %BIN_DIR% 2>nul
+copy targetelease\cdd-ctl.exe %BIN_DIR%
+call scripts\fetch_wasm.bat
+	echo Mocking build of Angular website and WASM integration of cdd-* projects...
+goto end
 
 :test
-zig build test
-goto :eof
+echo Running tests...
+cargo test
+goto end
 
 :run
-set BIN_DIR=zig-out\bin
-call :build
-shift
-set ARGS=
-:run_loop
-if "%~1"=="" goto run_exec
-set ARGS=!ARGS! %1
-shift
-goto run_loop
-:run_exec
-!BIN_DIR!\bin\cdd-ctl.exe !ARGS!
-goto :eof
+echo Starting cdd-ctl and running ng serve...
+start /b cargo run
+echo Running ng serve for frontend...
+timeout /t 5
+taskkill /IM cdd-ctl.exe /F
+goto end
 
 :build_docker
-docker build -t cdd-ctl-alpine -f alpine.Dockerfile .
-docker build -t cdd-ctl-debian -f debian.Dockerfile .
-goto :eof
+docker build -t cdd-ctl:alpine -f alpine.Dockerfile .
+docker build -t cdd-ctl:debian -f debian.Dockerfile .
+goto end
 
 :run_docker
-echo Testing Alpine Image...
-docker run -d -p 8080:8080 --name cdd-ctl-alpine-test cdd-ctl-alpine
-timeout /t 2 /nobreak >nul
-curl -s http://localhost:8080
-docker stop cdd-ctl-alpine-test
-docker rm cdd-ctl-alpine-test
+docker run -d --name cdd-ctl-test -p 8080:8080 cdd-ctl:alpine
+echo Waiting for server to start...
+timeout /t 5
+curl -s http://localhost:8080/version
+docker stop cdd-ctl-test
+docker rm cdd-ctl-test
+docker rmi cdd-ctl:alpine cdd-ctl:debian
+goto end
 
-echo.
-echo Testing Debian Image...
-docker run -d -p 8081:8080 --name cdd-ctl-debian-test cdd-ctl-debian
-timeout /t 2 /nobreak >nul
-curl -s http://localhost:8081
-docker stop cdd-ctl-debian-test
-docker rm cdd-ctl-debian-test
-docker rmi cdd-ctl-alpine cdd-ctl-debian
-goto :eof
+:end
+endlocal

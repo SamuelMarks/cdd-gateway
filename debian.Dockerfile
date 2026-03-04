@@ -1,15 +1,24 @@
-FROM debian:bookworm-slim AS builder
+# Stage 1: Build
+FROM rust:slim-bookworm AS builder
 
-RUN apt-get update && apt-get install -y wget xz-utils ca-certificates &&     rm -rf /var/lib/apt/lists/*
+# Install build dependencies
+RUN apt-get update && apt-get install -y pkg-config libssl-dev gcc build-essential && rm -rf /var/lib/apt/lists/*
 
-RUN ARCH=$(dpkg --print-architecture) &&     if [ "$ARCH" = "amd64" ]; then ZIG_ARCH="x86_64";     elif [ "$ARCH" = "arm64" ]; then ZIG_ARCH="aarch64";     else ZIG_ARCH="x86_64"; fi &&     wget -q https://ziglang.org/download/0.13.0/zig-linux-${ZIG_ARCH}-0.13.0.tar.xz &&     tar -xf zig-linux-${ZIG_ARCH}-0.13.0.tar.xz &&     mv zig-linux-${ZIG_ARCH}-0.13.0/ /usr/local/zig &&     ln -s /usr/local/zig/zig /usr/local/bin/zig
-
-WORKDIR /app
+WORKDIR /usr/src/cdd-ctl
 COPY . .
-RUN zig build -Doptimize=ReleaseSafe
 
+# Build for release
+RUN cargo build --release
+
+# Stage 2: Final
 FROM debian:bookworm-slim
-WORKDIR /app
-COPY --from=builder /app/zig-out/bin/cdd-ctl /usr/local/bin/cdd-ctl
+
+# Install runtime dependencies if needed
+RUN apt-get update && apt-get install -y libssl3 && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /usr/local/bin
+COPY --from=builder /usr/src/cdd-ctl/target/release/cdd-ctl .
+
 EXPOSE 8080
-ENTRYPOINT ["cdd-ctl", "--server", "--port", "8080", "--daemon"]
+
+ENTRYPOINT ["cdd-ctl", "--bind", "0.0.0.0:8080"]

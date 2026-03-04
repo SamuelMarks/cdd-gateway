@@ -1,149 +1,227 @@
-# Deploying `cdd-ctl` as a Background Service
+# Deployment Guide (`cdd-ctl`)
 
-`cdd-ctl` supports a built-in `--daemon` flag which triggers **JSONL (JSON Lines)** structured logging formatted with timestamps and log levels. This makes it heavily optimized for parsing by ingestion tools like ELK, Fluentd, DataDog, and Splunk.
+This guide provides examples for deploying `cdd-ctl` as a background service across various operating systems and environments. Since `cdd-ctl` acts as a daemon manager for 13 external `cdd-*` JSON-RPC servers, running it reliably is critical. 
 
-To launch `cdd-ctl` as a continuous API interface or resilient local daemon, integrate it into your operating system's native process manager.
+The application is built to handle its own internal process lifecycle (retries, logging, graceful shutdown), but the host OS must ensure `cdd-ctl` itself stays alive.
 
-## 1. Systemd (Linux)
+---
 
-To run `cdd-ctl` on a modern Linux distribution (Ubuntu, Debian, RHEL, Arch), create a `systemd` unit file.
+## 1. systemd (Ubuntu, Debian, RHEL, CentOS, Arch)
 
-1. Create `/etc/systemd/system/cdd-ctl.service`:
+`systemd` is the standard init system for most modern Linux distributions.
+
+1. Create a new service file at `/etc/systemd/system/cdd-ctl.service`:
+
 ```ini
 [Unit]
-Description=cdd-ctl Multi-Language JSON-RPC Service
+Description=cdd-ctl Daemon Manager (API Gateway for cdd-* processes)
 After=network.target
+Documentation=https://github.com/SamuelMarks/cdd-ctl
 
 [Service]
 Type=simple
-User=your_user
-# Use the daemon flag to output ECS-compatible JSONL logs
-ExecStart=/usr/local/bin/cdd-ctl --server --port 8080 --daemon
-Restart=on-failure
+User=cdd-user
+Group=cdd-group
+# Adjust the path to where your compiled binary and config live
+ExecStart=/usr/local/bin/cdd-ctl --bind 0.0.0.0:8080 --config /etc/cdd-ctl/config.json
+Restart=always
 RestartSec=5
-StandardOutput=syslog
-StandardError=syslog
-SyslogIdentifier=cdd-ctl
+LimitNOFILE=65536
+Environment="RUST_LOG=info"
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-2. Reload and enable the service:
+2. Enable and start the service:
+
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable cdd-ctl
 sudo systemctl start cdd-ctl
+sudo systemctl status cdd-ctl
 ```
 
-3. View JSON logs:
+3. View logs:
 ```bash
-sudo journalctl -u cdd-ctl -f
+journalctl -u cdd-ctl -f
 ```
 
-## 2. Launchd (macOS)
+---
 
-For macOS, `launchd` manages persistent agents and daemons.
+## 2. OpenRC (Alpine Linux, Gentoo)
 
-1. Create a Plist file in `~/Library/LaunchAgents/com.cdd.ctl.plist`:
+For systems using OpenRC (like our `alpine.Dockerfile` base or Gentoo), use `start-stop-daemon`.
+
+1. Create an init script at `/etc/init.d/cdd-ctl`:
+
+```bash
+#!/sbin/openrc-run
+
+name="cdd-ctl"
+description="cdd-ctl Daemon Manager"
+command="/usr/local/bin/cdd-ctl"
+command_args="--bind 0.0.0.0:8080 --config /etc/cdd-ctl/config.json"
+command_background="yes"
+pidfile="/run/${RC_SVCNAME}.pid"
+output_log="/var/log/cdd-ctl.log"
+error_log="/var/log/cdd-ctl.err"
+
+# Ensure the network is up before starting
+depend() {
+    need net
+}
+
+start_pre() {
+    export RUST_LOG=info
+    checkpath --directory --owner root:root --mode 0775 /var/log
+}
+```
+
+2. Make it executable and add to the default runlevel:
+
+```bash
+sudo chmod +x /etc/init.d/cdd-ctl
+sudo rc-update add cdd-ctl default
+sudo rc-service cdd-ctl start
+```
+
+---
+
+## 3. Windows Service
+
+Because `cdd-ctl` is a standard CLI executable and does not natively implement the Windows Service API (`ServiceMain`), the most robust way to run it as a service is using **NSSM (Non-Sucking Service Manager)**.
+
+1. Download [NSSM](http://nssm.cc/).
+2. Run the following commands in an elevated (Administrator) Command Prompt or PowerShell:
+
+```powershell
+# Install the service
+nssm install cdd-ctl "C:\path\to\cdd-ctl.exe"
+
+# Set application arguments
+nssm set cdd-ctl AppParameters "--bind 0.0.0.0:8080 --config C:\path\to\config.json"
+
+# Set environment variables (e.g., logging level)
+nssm set cdd-ctl AppEnvironmentExtra "RUST_LOG=info"
+
+# Ensure it restarts on failure
+nssm set cdd-ctl AppExit Default Restart
+
+# Start the service
+nssm start cdd-ctl
+```
+
+To view or edit the configuration via a GUI later, run: `nssm edit cdd-ctl`
+
+---
+
+## 4. Docker / Docker Compose
+
+If you are running in a containerized environment, you can map your local config into the container. `cdd-ctl`'s internal manager will handle spawning the 13 `cdd-*` processes inside the container (or mock them via `external_address`).
+
+1. Create a `docker-compose.yml`:
+
+```yaml
+version: '3.8'
+
+services:
+  cdd-ctl:
+    build:
+      context: .
+      dockerfile: alpine.Dockerfile
+    container_name: cdd-ctl-daemon
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config.json:/etc/cdd-ctl/config.json:ro
+      # If your cdd-* processes are local binaries mounted into the container:
+      - ./bin:/usr/local/bin/cdd-bins:ro
+    environment:
+      - RUST_LOG=info
+    command: ["--bind", "0.0.0.0:8080", "--config", "/etc/cdd-ctl/config.json"]
+    restart: unless-stopped
+```
+
+2. Run the stack:
+```bash
+docker-compose up -d
+docker-compose logs -f
+```
+
+---
+
+## 5. macOS (launchd)
+
+To run `cdd-ctl` as a background daemon on macOS, you use `launchd`.
+
+1. Create a plist file at `/Library/LaunchDaemons/com.offscale.cdd-ctl.plist` (for a system-wide daemon) or `~/Library/LaunchAgents/com.offscale.cdd-ctl.plist` (for a user-specific agent).
+
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.cdd.ctl</string>
+    <string>com.offscale.cdd-ctl</string>
+    
     <key>ProgramArguments</key>
     <array>
         <string>/usr/local/bin/cdd-ctl</string>
-        <string>--server</string>
-        <string>--port</string>
-        <string>8080</string>
-        <string>--daemon</string>
+        <string>--bind</string>
+        <string>0.0.0.0:8080</string>
+        <string>--config</string>
+        <string>/usr/local/etc/cdd-ctl/config.json</string>
     </array>
+    
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>RUST_LOG</key>
+        <string>info</string>
+    </dict>
+    
     <key>RunAtLoad</key>
     <true/>
+    
     <key>KeepAlive</key>
     <true/>
+    
     <key>StandardOutPath</key>
-    <string>/tmp/cdd-ctl.log</string>
+    <string>/usr/local/var/log/cdd-ctl.log</string>
     <key>StandardErrorPath</key>
-    <string>/tmp/cdd-ctl.err</string>
+    <string>/usr/local/var/log/cdd-ctl.err</string>
 </dict>
 </plist>
 ```
 
-2. Load and start the agent:
+2. Load and start the daemon:
+
 ```bash
-launchctl load ~/Library/LaunchAgents/com.cdd.ctl.plist
-launchctl start com.cdd.ctl
+sudo launchctl load -w /Library/LaunchDaemons/com.offscale.cdd-ctl.plist
 ```
 
-## 3. Windows Service (Windows)
+---
 
-On Windows, you can wrap `cdd-ctl.exe` as a background Windows Service using the built-in `sc.exe` command or tools like NSSM / WinSW. Here is the native `sc.exe` approach.
+## 6. Supervisor (Generic Linux / POSIX)
 
-1. Open an Administrator Command Prompt.
-2. Create the service:
-```cmd
-sc create "cdd-ctl" binPath= "C:\path	o\cdd-ctl.exe --server --port 8080 --daemon" start= auto
+If you aren't using an init system directly, or prefer a generic process manager like `supervisord`:
+
+1. Add a configuration block to `/etc/supervisor/conf.d/cdd-ctl.conf`:
+
+```ini
+[program:cdd-ctl]
+command=/usr/local/bin/cdd-ctl --bind 0.0.0.0:8080 --config /etc/cdd-ctl/config.json
+autostart=true
+autorestart=true
+stderr_logfile=/var/log/cdd-ctl.err.log
+stdout_logfile=/var/log/cdd-ctl.out.log
+environment=RUST_LOG="info"
+user=cdd-user
 ```
-*(Note the space after `binPath=` and `start=`, it is required by `sc.exe`)*
 
-3. Start the service:
-```cmd
-sc start "cdd-ctl"
-```
-
-*Note: Windows standard stdout is discarded by default for services. If you need the JSONL logs saved, wrap the execution in a `.bat` file redirecting `> C:\logs\cdd.log` or use WinSW.*
-
-## 4. Init.d (Legacy Linux / FreeBSD)
-
-For systems lacking `systemd`, use a standard `init.d` LSB script relying on `start-stop-daemon`.
-
-1. Create `/etc/init.d/cdd-ctl`:
+2. Update Supervisor:
 ```bash
-#!/bin/sh
-### BEGIN INIT INFO
-# Provides:          cdd-ctl
-# Required-Start:    $network $local_fs
-# Required-Stop:     $network $local_fs
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: cdd-ctl JSON-RPC Server
-### END INIT INFO
-
-DAEMON=/usr/local/bin/cdd-ctl
-# Ensure we run in daemon mode for parseable JSON logs
-ARGS="--server --port 8080 --daemon"
-PIDFILE=/var/run/cdd-ctl.pid
-LOGFILE=/var/log/cdd-ctl.jsonl
-
-case "$1" in
-  start)
-    echo "Starting cdd-ctl..."
-    start-stop-daemon --start --background --make-pidfile --pidfile $PIDFILE 
-      --exec /bin/sh -- -c "exec $DAEMON $ARGS >> $LOGFILE 2>&1"
-    ;;
-  stop)
-    echo "Stopping cdd-ctl..."
-    start-stop-daemon --stop --pidfile $PIDFILE
-    ;;
-  restart)
-    $0 stop
-    sleep 2
-    $0 start
-    ;;
-  *)
-    echo "Usage: $0 {start|stop|restart}"
-    exit 1
-    ;;
-esac
-exit 0
-```
-
-2. Make executable and start:
-```bash
-sudo chmod +x /etc/init.d/cdd-ctl
-sudo /etc/init.d/cdd-ctl start
+sudo supervisorctl reread
+sudo supervisorctl update
+sudo supervisorctl start cdd-ctl
 ```

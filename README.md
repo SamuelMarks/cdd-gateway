@@ -4,17 +4,23 @@
 [![Test Coverage](https://img.shields.io/badge/coverage-100%25-success.svg)](https://github.com/SamuelMarks/cdd-ctl/actions)
 [![Doc Coverage](https://img.shields.io/badge/docs-100%25-success.svg)](https://github.com/SamuelMarks/cdd-ctl/actions)
 
-Central command-line interface, SDK, and JSON-RPC over HTTP server for the `cdd-*` toolchain.
+Central daemon manager, API Gateway, and SDK management backend for the `cdd-*` toolchain.
+
+`cdd-ctl` serves as the robust Rust backend orchestrating the multi-language JSON-RPC ecosystem. It features an integrated daemon-manager to supervise child processes, coupled with a comprehensive OpenAPI-driven web backend for managing Projects (Organizations), SDKs (Repositories), and Releases with Role-Based Access Control (RBAC).
 
 ## Features
 
-- **CLI Interface:** Send requests to `cdd-*` tools via command line args.
-- **SDK:** Pure Zig library for programmatic access.
-- **JSON-RPC Server:** Extensible HTTP server serving JSON-RPC interfaces for multi-language components.
-- **Process Management:** Built-in initd/systemd-like process management allowing zero-dependency deployments across Windows, Linux, macOS, and FreeBSD. Includes stats tracking (uptime, flakiness).
-- **100% Coverage:** Guaranteed high quality via 100% doc coverage and test coverage requirements.
+- **Daemon Manager:** Built-in supervisor managing the lifecycle, standard-streams (logging), and auto-restart backoff of up to 13 distinct `cdd-*` JSON-RPC language servers.
+- **REST API Gateway:** High-performance RESTful API built on `actix-web`.
+- **Database & ORM:** Backed by PostgreSQL and `diesel`, managing complex relational data for Organizations, Repositories, and Releases.
+- **Authentication & Security:** Secure JWT-based `Bearer` auth, featuring an OAuth2 password grant flow with **Argon2** password hashing, alongside stubs for GitHub OAuth integration.
+- **Role-Based Access Control (RBAC):** Organization ownership models, ensuring secure management of underlying SDKs and sync processes.
+- **OpenAPI Integration:** Fully self-documenting. Exposes a live Swagger UI at `/swagger-ui/` using `utoipa` out-of-the-box.
+- **100% Coverage:** Guaranteed high quality via strict 100% Rustdoc and Test coverage requirements (`cargo tarpaulin`).
 
 ## Supported Ecosystems
+
+`cdd-ctl` daemonizes and interfaces with the following language SDKs:
 
 | Repository | Language | Client or Server | Extra features | OpenAPI Standard | CI Status |
 |---|---|---|---|---|---|
@@ -32,7 +38,7 @@ Central command-line interface, SDK, and JSON-RPC over HTTP server for the `cdd-
 | [`cdd-swift`](https://github.com/offscale/cdd-swift) | Swift | Client |  | OpenAPI 3.2.0 | [![Swift](https://github.com/SamuelMarks/cdd-swift/actions/workflows/swift.yml/badge.svg)](https://github.com/SamuelMarks/cdd-swift/actions/workflows/swift.yml) |
 | [`cdd-web-ng`](https://github.com/offscale/cdd-web-ng) | TypeScript | Client | Auto-Admin UI; Angular; fetch; Axios; Node.js | OpenAPI 3.2.0 & Swagger 2 | [![Tests and coverage](https://github.com/offscale/cdd-web-ng/actions/workflows/tests_and_coverage.yml/badge.svg)](https://github.com/offscale/cdd-web-ng/actions/workflows/tests_and_coverage.yml) |
 
-## Usage
+## Documentation
 
 For detailed guides on utilizing the `cdd-*` architecture and configuring this tool, refer to our comprehensive documentation:
 - [**Architecture Guide**](ARCHITECTURE.md)
@@ -40,40 +46,17 @@ For detailed guides on utilizing the `cdd-*` architecture and configuring this t
 - [**Daemon & Service Deployment Guide**](DEPLOYMENT.md)
 - [**Developing & Contributing**](DEVELOPING.md)
 
-### CLI
+## Quick Start
 
-Route a command to a specific language server/client:
+### Starting the Server
 
-```bash
-cdd-ctl --language cpp --type client_cli -- [additional_args...]
-```
-
-### Config File
-
-Alternatively, manage defaults via a `.json` configuration file:
+You can launch the API gateway and daemon-manager via Cargo:
 
 ```bash
-cdd-ctl --config ./cdd-ctl.json -- [additional_args...]
+cargo run --release -- --bind 0.0.0.0:8080 --config ./config.json
 ```
 
-### JSON-RPC Server
+### Accessing the Interactive API
 
-Start the cdd-ctl HTTP API:
-
-```bash
-cdd-ctl server --port 8080
-```
-
-Request format example:
-```json
-{
-  "jsonrpc": "2.0",
-  "method": "execute",
-  "params": {
-    "language": "python",
-    "type": "client",
-    "args": ["--input", "openapi.json"]
-  },
-  "id": 1
-}
-```
+Once running, the interactive OpenAPI standard documentation and sandbox is available at:
+`http://localhost:8080/swagger-ui/`

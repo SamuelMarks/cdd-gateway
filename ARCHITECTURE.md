@@ -1,59 +1,61 @@
 # cdd-ctl Architecture
 
-`cdd-ctl` serves as the central orchestration layer for the multi-language `cdd-*` toolchain. Instead of asking developers to manage 13+ distinct binary SDKs and CLI tools written in various languages, `cdd-ctl` provides a single entry point.
+`cdd-ctl` serves as the central orchestration layer and API gateway for the multi-language `cdd-*` toolchain. Rewritten natively in Rust, it provides a highly concurrent, reliable foundation for managing the execution, synchronization, and authentication of 13+ distinct language SDKs and components.
 
-It operates primarily in three distinct layers:
-1. **The Command Line Interface (CLI) Frontend**
-2. **The JSON-RPC Server**
-3. **The Process & Lifecycle Manager**
+It operates primarily across three distinct layers:
+1. **The API Gateway & REST Server (Actix Web)**
+2. **The Database & ORM (PostgreSQL & Diesel)**
+3. **The Process & Lifecycle Daemon Manager (Tokio)**
 
 ## High-Level Diagram
 
 ```ascii
                       +-------------------+
-                      |   User / Script   |
+                      |   Web UI / CLI    |
                       +---------+---------+
-                                | (CLI Args / Config JSON)
+                                | (HTTP/REST / OpenAPI)
                                 v
                       +---------+---------+
-                      |   cdd-ctl Entry   |
+                      |  cdd-ctl Gateway  |
+                      |   (actix-web)     |
                       +----+---------+----+
                            |         |
       +--------------------+         +---------------------+
-      | (Server Mode)                                      | (CLI Mode)
+      | (DB Queries via Diesel)                            | (Lifecycle Events)
       v                                                    v
 +-----+--------------+                             +-------+---------+
-| RpcServer          |                             | Process Manager |
-| (src/server.zig)   |                             | (src/process.zig|
-+-----+--------------+                             +-------+---------+
-      |                                                    |
-      | (JSON-RPC requests)                                | (Spawns & Tracks)
-      v                                                    v
-+-----+----------------------------------------------------+---------+
-|                  Language Sub-Processes / Sockets                  |
-|          (cdd-python, cdd-rust, cdd-go, cdd-typescript)            |
-+--------------------------------------------------------------------+
+| PostgreSQL DB      |                             | Daemon Manager  |
+| (Organizations,    |                             | (Tokio Tasks)   |
+|  Users, Repos,     |                             +-------+---------+
+|  Releases, RBAC)   |                                     |
++--------------------+                                     | (Spawns & Tracks)
+                                                           v
+                           +----------------------------------------------------+
+                           |             cdd-* JSON-RPC Servers                 |
+                           |   (cdd-python, cdd-rust, cdd-go, cdd-typescript)   |
+                           +----------------------------------------------------+
 ```
 
 ## Core Subsystems
 
-### 1. The CLI Frontend (`src/cli.zig`)
-The frontend is responsible for ingesting arguments and optionally a JSON configuration file. It merges the JSON payload and overrides it with explicitly passed CLI flags. It resolves the `Language` and `ComponentType` enum mappings.
+### 1. The REST API Gateway (`src/api/`)
+Built upon `actix-web`, this component provides a secure, OpenAPI-compliant REST interface.
+- **Routing & Sync:** Provides endpoints for managing Organizations, Users, Repositories (SDKs), and Releases. Future extensions handle secret management and direct syncing with the GitHub API.
+- **Authentication:** Enforces JWT `Bearer` token auth (`src/api/auth_middleware.rs`). Issues tokens via an OAuth2 password grant flow hashed via **Argon2** and supports GitHub OAuth login stubs.
+- **OpenAPI / Swagger:** Utilizes `utoipa` to generate live OpenAPI 3.x specifications automatically from the Rust codebase. A live sandbox is exposed at `/swagger-ui/`.
 
-### 2. The JSON-RPC Server (`src/server.zig`)
-This subsystem launches a persistent HTTP server. It listens for `JSON-RPC 2.0` standard payloads on a configurable port. The server allows long-running systems (like IDE extensions or continuous integration pipelines) to issue commands to the `cdd-*` toolchain without incurring process-spawn overhead for every request.
+### 2. Database & Data Models (`src/db/`)
+The database layer uses `diesel` (an asynchronous-friendly ORM in Rust) wrapping a `r2d2` PostgreSQL connection pool.
+- **Entities:** Manages the relational mapping of `Users`, `Organizations`, `Repositories`, and `Releases`.
+- **RBAC (Role-Based Access Control):** Uses many-to-many link tables (`organization_users`) storing explicit string-based roles (e.g., `"owner"`, `"member"`) to securely gate access to mutation APIs (like `POST /repos`).
+- **Abstract Repository Pattern:** To ensure 100% test coverage and dependency inversion, `CddRepository` provides an async trait abstraction, allowing the business logic to be tested against a `mockall` mock repository without a live database.
 
-### 3. Process Management (`src/process.zig`)
-Because the ecosystem consists of diverse technology stacks (Python, Java, Go, Rust), `cdd-ctl` must act as an agnostic daemon manager. 
-It uses a built-in cross-platform (Windows, macOS, Linux, FreeBSD) spawning utility (`ManagedProcess`). This system acts much like `systemd` or `init.d` but scoped exclusively to the `cdd-*` tooling.
-It accurately tracks:
-- Start counts.
-- Crash counts.
-- Uptime.
-- **Flakiness metrics**, providing analytics on whether specific underlying language servers are unstable.
+### 3. The Daemon Manager (`src/daemon.rs`)
+Because the ecosystem consists of diverse technology stacks (Python, Java, Go, Rust, Zig, C++, etc.), `cdd-ctl` must act as an agnostic process supervisor. Built fully on Tokio's async runtime, it acts as an embedded `initd` or `systemd`.
+- **Concurrency:** Spawns distinct tasks for each monitored process, allowing non-blocking I/O handling.
+- **I/O Standardizing:** Captures `stdout` and `stderr` from all 13 RPC servers, tagging and logging lines securely via the unified `log` crate.
+- **Resilience:** Implements auto-restart backoffs, tracking uptime to distinguish between persistent crashes (which eventually halt retries) and sporadic failures (which reset retry counters upon stabilization).
+- **Graceful Shutdown:** Subscribes all processes to a Tokio `watch` channel to cleanly cascade termination signals across the entire language-server fleet when the main gateway stops.
 
-## Config & Override Precedence
-Configurations are resolved in the following order (highest precedence to lowest):
-1. Command-line flags (`--language`, `--port`, `--remote-server`).
-2. Config file attributes (read via `--config <path>`).
-3. Hardcoded CLI defaults (e.g., port `8080`).
+## Configuration
+Configurations are handled elegantly via the `config` crate, resolving environment variable overrides (`CDD__SERVER_BIND`) or falling back to defaults in a `config.json` file.
