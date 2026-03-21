@@ -6,9 +6,13 @@ This document outlines the state of WebAssembly generation capabilities in the C
 The primary advantage of the CDD framework is providing instantaneous, zero-latency code generation via client-side WebAssembly. 
 
 To acquire WASM engines for each language:
-1. The build toolchain (`make build` or `make.bat`) attempts to dynamically download the pre-compiled `.wasm` binaries from the latest GitHub releases (e.g. `cdd-python`, `cdd-rust`).
-2. If network conditions fail or a pre-compiled release is unavailable, it automatically falls back to cloning the repositories and attempting a local build via native toolchains (e.g. `cargo build --target wasm32-wasi`).
+1. The 13 `cdd-*` ecosystems are now bundled as git submodules tracking the latest `master` commits within the `sdks/` directory.
+2. Running the WASM variant binaries (`cdd-ctl-wasm` and `cdd-rpc-wasm`) configures `wasmtime` locally to instantiate `.wasm` bytecode targets built natively from the checked-out source code without relying on stale network releases.
 3. A JSON configuration matrix (`wasm-support.json`) is dynamically emitted documenting which binaries successfully loaded and which failed.
+
+
+## Browser-Native SDK
+Because code generation relies on standalone WASM outputs, the overarching `cdd-ctl` project maintains a dedicated JavaScript library (`cdd-ctl-wasm-sdk`). This package initializes a WASI sandbox utilizing `@bjorn3/browser_wasi_shim`, mounts virtual filesystem descriptors, executes `.wasm` payloads directly in the browser's thread, and dynamically collects generated output files—enabling pure offline code generation inside frontend contexts.
 
 ## Fallback Gracefulness
 If a WASM generator fails to load or cannot be acquired:

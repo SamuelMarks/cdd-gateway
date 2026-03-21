@@ -1,26 +1,42 @@
 #!/bin/bash
 set -e
 
-mkdir -p cdd-web-ui/src/assets/wasm
+mkdir -p cdd-ctl-wasm-sdk/assets/wasm
 mkdir -p target/wasm-cache
 
 # Start generating the JSON configuration
-echo "{" > cdd-web-ui/src/assets/wasm-support.json
+echo "{" > cdd-ctl-wasm-sdk/assets/wasm-support.json
 
-TOOLS=("cdd-typescript" "cdd-python" "cdd-java" "cdd-go" "cdd-rust")
-TOTAL=${#TOOLS[@]}
+REPOS=(
+    "SamuelMarks/cdd-c"
+    "SamuelMarks/cdd-cpp"
+    "SamuelMarks/cdd-csharp"
+    "SamuelMarks/cdd-go"
+    "SamuelMarks/cdd-java"
+    "offscale/cdd-kotlin"
+    "SamuelMarks/cdd-php"
+    "offscale/cdd-python-all"
+    "SamuelMarks/cdd-ruby"
+    "SamuelMarks/cdd-rust"
+    "SamuelMarks/cdd-sh"
+    "SamuelMarks/cdd-swift"
+    "offscale/cdd-ts"
+)
+TOTAL=${#REPOS[@]}
 COUNT=0
 
-for TOOL in "${TOOLS[@]}"; do
+for REPO in "${REPOS[@]}"; do
+    ORG=${REPO%/*}
+    TOOL=${REPO#*/}
     LANG=${TOOL#cdd-}
     echo "Processing $TOOL ($LANG)..."
     
-    WASM_FILE="cdd-web-ui/src/assets/wasm/$TOOL.wasm"
+    WASM_FILE="cdd-ctl-wasm-sdk/assets/wasm/$TOOL.wasm"
     SUPPORTED="false"
     
     # Attempt 1: Download from GitHub Releases
     echo "  Attempting to download from GitHub releases..."
-    HTTP_CODE=$(curl -sL -w "%{http_code}" -o target/wasm-cache/$TOOL.wasm "https://github.com/SamuelMarks/$TOOL/releases/latest/download/$TOOL.wasm" || echo "000")
+    HTTP_CODE=$(curl -sL -w "%{http_code}" -o target/wasm-cache/$TOOL.wasm "https://github.com/${ORG}/${TOOL}/releases/latest/download/$TOOL.wasm" || echo "000")
     
     if [ "$HTTP_CODE" = "200" ]; then
         echo "  Successfully downloaded $TOOL.wasm"
@@ -31,7 +47,7 @@ for TOOL in "${TOOLS[@]}"; do
         
         # Attempt 2: Local clone and build
         rm -rf target/wasm-cache/$TOOL
-        if git clone --depth 1 "https://github.com/SamuelMarks/$TOOL.git" target/wasm-cache/$TOOL 2>/dev/null; then
+        if git clone --depth 1 "https://github.com/${ORG}/${TOOL}.git" target/wasm-cache/$TOOL 2>/dev/null; then
             echo "  Repository cloned. Attempting to build..."
             pushd target/wasm-cache/$TOOL > /dev/null
             
@@ -58,11 +74,11 @@ for TOOL in "${TOOLS[@]}"; do
     
     COUNT=$((COUNT + 1))
     if [ $COUNT -lt $TOTAL ]; then
-        echo "  \"$LANG\": $SUPPORTED," >> cdd-web-ui/src/assets/wasm-support.json
+        echo "  \"$LANG\": $SUPPORTED," >> cdd-ctl-wasm-sdk/assets/wasm-support.json
     else
-        echo "  \"$LANG\": $SUPPORTED" >> cdd-web-ui/src/assets/wasm-support.json
+        echo "  \"$LANG\": $SUPPORTED" >> cdd-ctl-wasm-sdk/assets/wasm-support.json
     fi
 done
 
-echo "}" >> cdd-web-ui/src/assets/wasm-support.json
-echo "WASM acquisition complete. Support matrix generated at cdd-web-ui/src/assets/wasm-support.json"
+echo "}" >> cdd-ctl-wasm-sdk/assets/wasm-support.json
+echo "WASM acquisition complete. Support matrix generated at cdd-ctl-wasm-sdk/assets/wasm-support.json"

@@ -17,7 +17,7 @@ This project is written natively in **Rust** and adheres strictly to a 100% test
 Clone the repository and install the pre-commit hooks:
 
 ```bash
-git clone https://github.com/SamuelMarks/cdd-ctl
+git clone --recursive https://github.com/SamuelMarks/cdd-ctl
 cd cdd-ctl
 pre-commit install
 ```
@@ -40,7 +40,8 @@ The project uses standard Rust `cargo` commands wrapped by a helper `Makefile` (
 - **To run the executable:**
   ```bash
   make run
-  # Or simply: cargo run -- --bind 0.0.0.0:8080
+  # Or simply: cargo run --bin cdd-ctl -- --bind 0.0.0.0:8080
+  # To run the RPC version: cargo run --bin cdd-rpc -- --bind 0.0.0.0:8080
   ```
 
 - **To run tests (Required before opening a PR):**
@@ -70,7 +71,9 @@ The project uses standard Rust `cargo` commands wrapped by a helper `Makefile` (
 
 We recommend reading [ARCHITECTURE.md](ARCHITECTURE.md) to understand how the components fit together.
 
-- `src/main.rs`: The executable entry point. Bootstraps the Actix web server and Tokio daemon manager.
+- `src/lib.rs`: The core library implementing API gateways, DB interactions, and daemon logic.
+- `src/bin/`: Contains the four executable entry points (`cdd-ctl`, `cdd-ctl-wasm`, `cdd-rpc`, `cdd-rpc-wasm`).
+- `sdks/`: Git submodules for all 13 `cdd-*` ecosystems pinned to their latest `master`.
 - `src/api/`: Actix-web route definitions, DTO payloads, and OpenAPI integration (`utoipa`).
 - `src/db/`: Diesel ORM mappings, Postgres schema generation, and the `CddRepository` data access traits.
 - `src/daemon.rs`: The cross-platform, async `ProcessManager` daemon utility.

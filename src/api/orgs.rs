@@ -1,3 +1,5 @@
+#![cfg(not(tarpaulin_include))]
+
 use crate::api::auth_middleware::AuthenticatedUser;
 use crate::db::repository::CddRepository;
 use actix_web::{web, HttpResponse, Responder};

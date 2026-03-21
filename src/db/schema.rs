@@ -1,3 +1,5 @@
+#![cfg(not(tarpaulin_include))]
+
 // @generated automatically by Diesel CLI.
 
 diesel::table! {

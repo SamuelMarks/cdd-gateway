@@ -1,34 +1,32 @@
+#![cfg(not(tarpaulin_include))]
 #![warn(missing_docs)]
 
 //! cdd-ctl: Daemon manage >13 processes and act as API gateway and authentication layer.
 #![allow(unused_imports)]
-#![allow(missing_docs)]
-
-pub mod api;
-pub mod config;
-pub mod daemon;
-pub mod db;
-pub mod github;
 
 use actix_web::{web, App, HttpServer};
+use cdd_ctl::{api, db};
 use clap::Parser;
 use log::{error, info};
 use std::sync::Arc;
 
-use crate::config::AppConfig;
-use crate::daemon::ProcessManager;
-use crate::db::repository::{CddRepository, PgRepository};
-use crate::github::client::{GitHubClient, ReqwestGitHubClient};
+use cdd_ctl::AppConfig;
+use cdd_ctl::{CddRepository, PgRepository};
+use cdd_ctl::{GitHubClient, ReqwestGitHubClient};
+use cdd_ctl::{ProcessConfig, ProcessManager};
 
 #[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
+#[command(name = "cdd-ctl-wasm", author, version, about, long_about = None)]
+/// Command line arguments
 struct Args {
     /// Path to configuration file (JSON/YAML/TOML)
     #[arg(short, long)]
+    /// Path to configuration file (JSON/YAML/TOML)
     config: Option<String>,
 
     /// Override the bind address
     #[arg(short, long)]
+    /// Override the bind address
     bind: Option<String>,
 }
 
@@ -51,7 +49,37 @@ async fn main() -> std::io::Result<()> {
         app_config.server_bind = bind;
     }
 
-    info!("Starting cdd-ctl server on {}", app_config.server_bind);
+    if app_config.servers.is_empty() {
+        info!("No servers configured, populating with default WASM execution engines.");
+        let wasm_tools = [
+            "cdd-c",
+            "cdd-cpp",
+            "cdd-csharp",
+            "cdd-go",
+            "cdd-java",
+            "cdd-kotlin",
+            "cdd-php",
+            "cdd-python",
+            "cdd-ruby",
+            "cdd-rust",
+            "cdd-swift",
+            "cdd-ts",
+        ];
+        for tool in wasm_tools {
+            app_config.servers.insert(
+                tool.to_string(),
+                cdd_ctl::ProcessConfig {
+                    command: Some("wasmtime".to_string()),
+                    args: Some(vec![format!("cdd-ctl-wasm-sdk/assets/wasm/{}.wasm", tool)]),
+                    external_address: None,
+                    max_retries: 5,
+                    restart_delay_ms: 2000,
+                },
+            );
+        }
+    }
+
+    info!("Starting cdd-ctl-wasm server on {}", app_config.server_bind);
 
     let process_manager = Arc::new(ProcessManager::new(app_config.servers.clone()));
 

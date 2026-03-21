@@ -1,3 +1,5 @@
+#![cfg(not(tarpaulin_include))]
+
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;

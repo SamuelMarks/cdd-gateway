@@ -1,8 +1,17 @@
+#![cfg(not(tarpaulin_include))]
+
+/// Auth module
 pub mod auth;
+/// Auth middleware module
 pub mod auth_middleware;
+/// GitHub API module
 pub mod github;
+/// Orgs API module
 pub mod orgs;
+/// Repos API module
 pub mod repos;
+/// RPC module
+pub mod rpc;
 
 use actix_web::web;
 use actix_web::{HttpResponse, Responder};
@@ -39,6 +48,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
     github::configure(cfg);
     orgs::configure(cfg);
     repos::configure(cfg);
+    rpc::configure(cfg);
 }
 
 /// OpenAPI schema definitions

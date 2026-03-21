@@ -327,4 +327,269 @@ mod tests {
         let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_success());
     }
+
+    #[actix_web::test]
+    async fn test_register_fail() {
+        let mut mock_repo = MockCddRepository::new();
+        mock_repo
+            .expect_create_user()
+            .returning(|_, _, _, _| Err(diesel::result::Error::NotFound));
+
+        let mock_gh = MockGitHubClient::new();
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(Arc::new(mock_repo) as Arc<dyn CddRepository>))
+                .app_data(web::Data::new(Arc::new(mock_gh) as Arc<dyn GitHubClient>))
+                .configure(configure),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/auth/register")
+            .set_json(RegisterPayload {
+                username: "test".to_string(),
+                email: "test@example.com".to_string(),
+                password: Some("pwd".to_string()),
+            })
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 400);
+    }
+
+    #[actix_web::test]
+    async fn test_login_password_success() {
+        let mut mock_repo = MockCddRepository::new();
+        mock_repo.expect_find_user_by_username().returning(|_| {
+            Ok(Some(User {
+                id: 1,
+                github_id: None,
+                username: "test".into(),
+                email: "test@example.com".into(),
+                password_hash: Some(hash_password("pwd")),
+            }))
+        });
+
+        let mock_gh = MockGitHubClient::new();
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(Arc::new(mock_repo) as Arc<dyn CddRepository>))
+                .app_data(web::Data::new(Arc::new(mock_gh) as Arc<dyn GitHubClient>))
+                .configure(configure),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/auth/login")
+            .set_json(LoginPayload {
+                username: "test".to_string(),
+                password: Some("pwd".to_string()),
+            })
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert!(resp.status().is_success());
+    }
+
+    #[actix_web::test]
+    async fn test_login_password_no_password() {
+        let mut mock_repo = MockCddRepository::new();
+        mock_repo.expect_find_user_by_username().returning(|_| {
+            Ok(Some(User {
+                id: 1,
+                github_id: None,
+                username: "test".into(),
+                email: "test@example.com".into(),
+                password_hash: Some(hash_password("pwd")),
+            }))
+        });
+
+        let mock_gh = MockGitHubClient::new();
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(Arc::new(mock_repo) as Arc<dyn CddRepository>))
+                .app_data(web::Data::new(Arc::new(mock_gh) as Arc<dyn GitHubClient>))
+                .configure(configure),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/auth/login")
+            .set_json(LoginPayload {
+                username: "test".to_string(),
+                password: None,
+            })
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 401);
+    }
+
+    #[actix_web::test]
+    async fn test_login_password_wrong_password() {
+        let mut mock_repo = MockCddRepository::new();
+        mock_repo.expect_find_user_by_username().returning(|_| {
+            Ok(Some(User {
+                id: 1,
+                github_id: None,
+                username: "test".into(),
+                email: "test@example.com".into(),
+                password_hash: Some(hash_password("pwd2")),
+            }))
+        });
+
+        let mock_gh = MockGitHubClient::new();
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(Arc::new(mock_repo) as Arc<dyn CddRepository>))
+                .app_data(web::Data::new(Arc::new(mock_gh) as Arc<dyn GitHubClient>))
+                .configure(configure),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/auth/login")
+            .set_json(LoginPayload {
+                username: "test".to_string(),
+                password: Some("pwd".to_string()),
+            })
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 401);
+    }
+
+    #[actix_web::test]
+    async fn test_login_github_empty_code() {
+        let mock_repo = MockCddRepository::new();
+        let mock_gh = MockGitHubClient::new();
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(Arc::new(mock_repo) as Arc<dyn CddRepository>))
+                .app_data(web::Data::new(Arc::new(mock_gh) as Arc<dyn GitHubClient>))
+                .configure(configure),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/auth/github")
+            .set_json(OAuthPayload {
+                code: "".to_string(),
+            })
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 400);
+    }
+
+    #[actix_web::test]
+    async fn test_login_github_exchange_fail() {
+        let mock_repo = MockCddRepository::new();
+        let mut mock_gh = MockGitHubClient::new();
+        mock_gh
+            .expect_exchange_code()
+            .returning(|_| Err("err".to_string()));
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(Arc::new(mock_repo) as Arc<dyn CddRepository>))
+                .app_data(web::Data::new(Arc::new(mock_gh) as Arc<dyn GitHubClient>))
+                .configure(configure),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/auth/github")
+            .set_json(OAuthPayload { code: "abc".into() })
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 400);
+    }
+
+    #[actix_web::test]
+    async fn test_login_github_get_user_fail() {
+        let mock_repo = MockCddRepository::new();
+        let mut mock_gh = MockGitHubClient::new();
+        mock_gh
+            .expect_exchange_code()
+            .returning(|_| Ok("token".into()));
+        mock_gh
+            .expect_get_user()
+            .returning(|_| Err("err".to_string()));
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(Arc::new(mock_repo) as Arc<dyn CddRepository>))
+                .app_data(web::Data::new(Arc::new(mock_gh) as Arc<dyn GitHubClient>))
+                .configure(configure),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/auth/github")
+            .set_json(OAuthPayload { code: "abc".into() })
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 500);
+    }
+
+    #[actix_web::test]
+    async fn test_login_github_get_emails_fail() {
+        let mock_repo = MockCddRepository::new();
+        let mut mock_gh = MockGitHubClient::new();
+        mock_gh
+            .expect_exchange_code()
+            .returning(|_| Ok("token".into()));
+        mock_gh.expect_get_user().returning(|_| {
+            Ok(GitHubUser {
+                id: 1,
+                login: "l".into(),
+                avatar_url: "u".into(),
+            })
+        });
+        mock_gh
+            .expect_get_emails()
+            .returning(|_| Err("err".to_string()));
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(Arc::new(mock_repo) as Arc<dyn CddRepository>))
+                .app_data(web::Data::new(Arc::new(mock_gh) as Arc<dyn GitHubClient>))
+                .configure(configure),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/auth/github")
+            .set_json(OAuthPayload { code: "abc".into() })
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 500);
+    }
+
+    #[actix_web::test]
+    async fn test_login_github_upsert_fail() {
+        let mut mock_repo = MockCddRepository::new();
+        mock_repo
+            .expect_upsert_user()
+            .returning(|_, _, _| Err(diesel::result::Error::NotFound));
+        let mut mock_gh = MockGitHubClient::new();
+        mock_gh
+            .expect_exchange_code()
+            .returning(|_| Ok("token".into()));
+        mock_gh.expect_get_user().returning(|_| {
+            Ok(GitHubUser {
+                id: 1,
+                login: "l".into(),
+                avatar_url: "u".into(),
+            })
+        });
+        mock_gh.expect_get_emails().returning(|_| Ok(vec![]));
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(Arc::new(mock_repo) as Arc<dyn CddRepository>))
+                .app_data(web::Data::new(Arc::new(mock_gh) as Arc<dyn GitHubClient>))
+                .configure(configure),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/auth/github")
+            .set_json(OAuthPayload { code: "abc".into() })
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 500);
+    }
 }

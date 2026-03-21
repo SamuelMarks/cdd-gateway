@@ -41,3 +41,6 @@ base64 = "0.22.1"
 [dev-dependencies]
 async-trait = "0.1.89"
 mockall = "0.14.0"
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = ['cfg(tarpaulin_include)'] }

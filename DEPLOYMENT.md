@@ -60,7 +60,7 @@ For systems using OpenRC (like our `alpine.Dockerfile` base or Gentoo), use `sta
 
 name="cdd-ctl"
 description="cdd-ctl Daemon Manager"
-command="/usr/local/bin/cdd-ctl"
+command="/usr/local/bin/cdd-ctl (or /usr/local/bin/cdd-ctl-wasm, /usr/local/bin/cdd-rpc, /usr/local/bin/cdd-rpc-wasm)"
 command_args="--bind 0.0.0.0:8080 --config /etc/cdd-ctl/config.json"
 command_background="yes"
 pidfile="/run/${RC_SVCNAME}.pid"
@@ -96,7 +96,7 @@ Because `cdd-ctl` is a standard CLI executable and does not natively implement t
 2. Run the following commands in an elevated (Administrator) Command Prompt or PowerShell:
 
 ```powershell
-# Install the service
+# Install the service (Replace cdd-ctl with cdd-rpc or cdd-ctl-wasm if desired)
 nssm install cdd-ctl "C:\path\to\cdd-ctl.exe"
 
 # Set application arguments
@@ -167,7 +167,7 @@ To run `cdd-ctl` as a background daemon on macOS, you use `launchd`.
     
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/local/bin/cdd-ctl</string>
+        <string>/usr/local/bin/cdd-ctl (or /usr/local/bin/cdd-ctl-wasm, /usr/local/bin/cdd-rpc, /usr/local/bin/cdd-rpc-wasm)</string>
         <string>--bind</string>
         <string>0.0.0.0:8080</string>
         <string>--config</string>
@@ -210,7 +210,7 @@ If you aren't using an init system directly, or prefer a generic process manager
 
 ```ini
 [program:cdd-ctl]
-command=/usr/local/bin/cdd-ctl --bind 0.0.0.0:8080 --config /etc/cdd-ctl/config.json
+command=/usr/local/bin/cdd-ctl (or /usr/local/bin/cdd-ctl-wasm, /usr/local/bin/cdd-rpc, /usr/local/bin/cdd-rpc-wasm) --bind 0.0.0.0:8080 --config /etc/cdd-ctl/config.json
 autostart=true
 autorestart=true
 stderr_logfile=/var/log/cdd-ctl.err.log

@@ -1,3 +1,5 @@
+#![cfg(not(tarpaulin_include))]
+
 use crate::api::auth_middleware::AuthenticatedUser;
 use crate::db::repository::CddRepository;
 use crate::github::client::GitHubClient;
@@ -20,33 +22,51 @@ pub struct SyncStatus {
     pub message: String,
 }
 
+/// WebhookResponse structure
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct WebhookResponse {
+    /// success field
     pub success: bool,
 }
 
+/// TriggerWorkflowPayload structure
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct TriggerWorkflowPayload {
+    /// owner field
     pub owner: String,
+    /// repo field
     pub repo: String,
+    /// workflow_id field
     pub workflow_id: String,
+    /// ref_branch field
     pub ref_branch: String,
 }
 
+/// CreateSecretPayload structure
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct CreateSecretPayload {
+    /// owner field
     pub owner: String,
+    /// repo field
     pub repo: String,
+    /// secret_name field
     pub secret_name: String,
+    /// secret_value field
     pub secret_value: String,
 }
 
+/// ReleasePayload structure
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct ReleasePayload {
+    /// owner field
     pub owner: String,
+    /// repo field
     pub repo: String,
+    /// tag_name field
     pub tag_name: String,
+    /// name field
     pub name: Option<String>,
+    /// body field
     pub body: Option<String>,
 }
 

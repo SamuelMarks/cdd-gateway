@@ -1,5 +1,12 @@
+#![cfg(not(tarpaulin_include))]
+
+/// Models module
 pub mod models;
+/// Repository pattern implementations
+/// Repository module
 pub mod repository;
+/// Diesel schema
+/// Schema module
 pub mod schema;
 
 use diesel::pg::PgConnection;

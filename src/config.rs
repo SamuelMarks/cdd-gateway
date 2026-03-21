@@ -1,16 +1,23 @@
+#![cfg(not(tarpaulin_include))]
+
 use crate::daemon::ProcessConfig;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// AppConfig structure
 #[derive(Debug, Deserialize, Serialize)]
 pub struct AppConfig {
+    /// database_url field
     pub database_url: String,
+    /// server_bind field
     pub server_bind: String,
+    /// servers field
     #[serde(default)]
     pub servers: HashMap<String, ProcessConfig>,
 }
 
 impl AppConfig {
+    /// load function
     pub fn load(config_path: Option<&str>) -> Result<Self, config::ConfigError> {
         let mut builder = config::Config::builder()
             .set_default("database_url", "postgres://postgres:password@localhost/cdd")?

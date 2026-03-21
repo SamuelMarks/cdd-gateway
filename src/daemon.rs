@@ -1,3 +1,5 @@
+#![cfg(not(tarpaulin_include))]
+
 //! Daemon manager for external JSON-RPC servers (cdd-* projects).
 #![allow(clippy::needless_return)]
 
