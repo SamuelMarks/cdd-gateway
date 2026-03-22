@@ -1,79 +1,52 @@
+#![allow(missing_docs)]
 #![cfg(not(tarpaulin_include))]
 
 // @generated automatically by Diesel CLI.
 
 diesel::table! {
-    /// Organizations (Projects) mapping.
-    organizations (id) {
-        /// Internal DB ID
-        id -> Int4,
-        /// GitHub ID, if synced
-        github_id -> Nullable<Int8>,
-        /// Login/Name
-        login -> Varchar,
-        /// Description
-        description -> Nullable<Text>,
-    }
-}
-
-diesel::table! {
-    /// Organization Members mapping RBAC roles
     organization_users (organization_id, user_id) {
-        /// Organization ID
         organization_id -> Int4,
-        /// User ID
         user_id -> Int4,
-        /// Role (e.g., "owner", "member")
         role -> Varchar,
     }
 }
 
 diesel::table! {
-    /// Releases mapping
-    releases (id) {
-        /// Internal DB ID
+    organizations (id) {
         id -> Int4,
-        /// Repository ID
-        repository_id -> Int4,
-        /// GitHub ID, if synced
         github_id -> Nullable<Int8>,
-        /// Tag Name
-        tag_name -> Varchar,
-        /// Name
-        name -> Nullable<Varchar>,
-        /// Body
-        body -> Nullable<Text>,
-    }
-}
-
-diesel::table! {
-    /// Repositories (SDKs) mapping
-    repositories (id) {
-        /// Internal DB ID
-        id -> Int4,
-        /// Organization ID
-        organization_id -> Int4,
-        /// GitHub ID, if synced
-        github_id -> Nullable<Int8>,
-        /// Name
-        name -> Varchar,
-        /// Description
+        login -> Varchar,
         description -> Nullable<Text>,
     }
 }
 
 diesel::table! {
-    /// Users mapping
-    users (id) {
-        /// Internal DB ID
+    releases (id) {
         id -> Int4,
-        /// GitHub ID, if synced
+        repository_id -> Int4,
         github_id -> Nullable<Int8>,
-        /// Username
+        tag_name -> Varchar,
+        name -> Nullable<Varchar>,
+        body -> Nullable<Text>,
+    }
+}
+
+diesel::table! {
+    repositories (id) {
+        id -> Int4,
+        organization_id -> Int4,
+        github_id -> Nullable<Int8>,
+        name -> Varchar,
+        description -> Nullable<Text>,
+    }
+}
+
+diesel::table! {
+    users (id) {
+        id -> Int4,
+        github_id -> Nullable<Int8>,
         username -> Varchar,
-        /// Email
         email -> Varchar,
-        /// Password Hash
         password_hash -> Nullable<Varchar>,
     }
 }

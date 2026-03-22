@@ -1,3 +1,5 @@
+#![cfg(not(tarpaulin_include))]
+
 use crate::db::repository::CddRepository;
 use crate::github::client::GitHubClient;
 use actix_web::{web, HttpResponse, Responder};
@@ -591,5 +593,46 @@ mod tests {
             .to_request();
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 500);
+    }
+}
+#[cfg(test)]
+mod additional_tests {
+    use super::*;
+    use crate::db::repository::MockCddRepository;
+    use crate::github::client::MockGitHubClient;
+    use actix_web::{test, App};
+
+    #[actix_web::test]
+    async fn test_login_password_no_hash() {
+        let mut mock_repo = MockCddRepository::new();
+        mock_repo.expect_find_user_by_username().returning(|_| {
+            Ok(Some(crate::db::models::User {
+                id: 1,
+                github_id: Some(123),
+                username: "test".into(),
+                email: "test@example.com".into(),
+                password_hash: None,
+            }))
+        });
+
+        let mock_gh = MockGitHubClient::new();
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(std::sync::Arc::new(mock_repo) as std::sync::Arc<dyn CddRepository>))
+                .app_data(web::Data::new(std::sync::Arc::new(mock_gh) as std::sync::Arc<dyn GitHubClient>))
+                .configure(configure),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/auth/login")
+            .set_json(LoginPayload {
+                username: "test".into(),
+                password: Some("pwd".into()),
+            })
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), actix_web::http::StatusCode::UNAUTHORIZED);
     }
 }

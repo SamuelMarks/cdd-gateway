@@ -12,8 +12,9 @@ Central daemon manager, API Gateway, and SDK management backend for the `cdd-*` 
 
 - **Daemon Manager:** Built-in supervisor managing the lifecycle, standard-streams (logging), and auto-restart backoff of up to 13 distinct `cdd-*` JSON-RPC language servers.
 - **REST API Gateway:** High-performance RESTful API built on `actix-web`.
-- **Database & ORM:** Backed by PostgreSQL and `diesel`, managing complex relational data for Organizations, Repositories, and Releases.
-- **Authentication & Security:** Secure JWT-based `Bearer` auth, featuring an OAuth2 password grant flow with **Argon2** password hashing, alongside stubs for GitHub OAuth integration.
+- **Database & ORM:** Fully implemented PostgreSQL data models for Organizations, Repositories, and Releases using `diesel`.
+- **GitHub Integrations:** Integrated GitHub OAuth, webhooks, and automated secrets management (via Libsodium-sealed Action Secrets).
+- **Authentication & Security:** Secure JWT-based `Bearer` auth, featuring an OAuth2 password grant flow with **Argon2** password hashing.
 - **Role-Based Access Control (RBAC):** Organization ownership models, ensuring secure management of underlying SDKs and sync processes.
 - **OpenAPI Integration:** Fully self-documenting. Exposes a live Swagger UI at `/swagger-ui/` using `utoipa` out-of-the-box.
 - **100% Coverage:** Guaranteed high quality via strict 100% Rustdoc and Test coverage requirements (`cargo tarpaulin`).

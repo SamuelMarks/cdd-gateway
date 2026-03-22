@@ -13,3 +13,15 @@ indent_size = 2
 
 [Makefile]
 indent_style = tab
+
+[*.{rs,toml}]
+indent_size = 4
+
+[*.{c,cpp,h,hpp}]
+indent_size = 4
+
+[*.{py,sh}]
+indent_size = 4
+
+[*.{json,yaml,yml,js,ts,md}]
+indent_size = 2

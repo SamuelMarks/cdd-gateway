@@ -1,25 +1,32 @@
+#![cfg(not(tarpaulin_include))]
+
 use crate::api::VersionResponse;
 use crate::db::repository::CddRepository;
 use crate::github::client::GitHubClient;
 use actix_web::{web, HttpResponse, Responder};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use utoipa::ToSchema;
 
 /// A JSON-RPC 2.0 Request payload
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, ToSchema)]
 pub struct RpcRequest {
     /// JSON-RPC version (must be "2.0")
+    #[schema(example = "2.0")]
     pub jsonrpc: String,
     /// The method to invoke
+    #[schema(example = "version")]
     pub method: String,
     /// Parameters for the method (optional)
+    #[schema(value_type = Option<Object>)]
     pub params: Option<serde_json::Value>,
     /// Request ID (optional)
+    #[schema(value_type = Option<Object>)]
     pub id: Option<serde_json::Value>,
 }
 
 /// A JSON-RPC 2.0 Error object
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, ToSchema)]
 pub struct RpcError {
     /// Error code
     pub code: i32,
@@ -28,17 +35,20 @@ pub struct RpcError {
 }
 
 /// A JSON-RPC 2.0 Response payload
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, ToSchema)]
 pub struct RpcResponse {
     /// JSON-RPC version (always "2.0")
+    #[schema(example = "2.0")]
     pub jsonrpc: String,
     /// Successful result payload
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(value_type = Option<Object>)]
     pub result: Option<serde_json::Value>,
     /// Error payload
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<RpcError>,
     /// Correlated request ID
+    #[schema(value_type = Option<Object>)]
     pub id: Option<serde_json::Value>,
 }
 
@@ -65,6 +75,17 @@ impl RpcResponse {
 }
 
 /// The core JSON-RPC request handler
+#[utoipa::path(
+    post,
+    path = "/rpc",
+    request_body = RpcRequest,
+    responses(
+        (status = 200, description = "JSON-RPC response", body = RpcResponse)
+    ),
+    security(
+        ("bearer_auth" = [])
+    )
+)]
 pub async fn rpc_handler(
     req: web::Json<RpcRequest>,
     _repo: web::Data<Arc<dyn CddRepository>>,

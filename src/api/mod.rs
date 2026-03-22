@@ -65,7 +65,8 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
         github::trigger_action,
         github::create_secret,
         orgs::create_org,
-        repos::create_repo
+        repos::create_repo,
+        rpc::rpc_handler
     ),
     components(
         schemas(
@@ -81,6 +82,9 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
             github::ReleasePayload,
             orgs::OrgPayload,
             repos::RepoPayload,
+            rpc::RpcRequest,
+            rpc::RpcResponse,
+            rpc::RpcError,
             crate::db::models::Organization,
             crate::db::models::Repository
         )

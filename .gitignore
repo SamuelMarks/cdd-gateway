@@ -33,3 +33,16 @@ Lcov
 # cdd-ctl-wasm-sdk Node.js package
 cdd-ctl-wasm-sdk/node_modules
 cdd-ctl-wasm-sdk/dist
+
+# Reports
+tarpaulin-report.html
+cobertura.xml
+
+# Project Plans
+PLAN.md
+mark_plan.py
+mark_plan2.py
+patch.py
+patch_get_conn.rs
+patch_impl.rs
+patch_schema.sh

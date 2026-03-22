@@ -9,6 +9,11 @@ pub mod repository;
 /// Schema module
 pub mod schema;
 
+#[cfg(test)]
+/// Tests for database models
+pub mod tests;
+
+
 use diesel::pg::PgConnection;
 use diesel::r2d2::{self, ConnectionManager};
 

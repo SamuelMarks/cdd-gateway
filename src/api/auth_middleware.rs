@@ -57,6 +57,7 @@ impl FromRequest for AuthenticatedUser {
 }
 
 #[cfg(test)]
+/// Generate a test token for use in tests
 pub fn generate_test_token() -> String {
     use jsonwebtoken::{encode, EncodingKey, Header};
     let claims = Claims {
