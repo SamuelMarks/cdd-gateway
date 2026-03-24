@@ -1,4 +1,3 @@
-#![cfg(not(tarpaulin_include))]
 
 #![allow(missing_docs)]
 #[cfg(test)]

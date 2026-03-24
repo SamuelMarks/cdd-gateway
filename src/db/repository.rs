@@ -1,5 +1,6 @@
 #![cfg(not(tarpaulin_include))]
 
+
 use crate::db::models::*;
 use crate::db::schema::*;
 use async_trait::async_trait;
@@ -123,7 +124,6 @@ pub struct PgRepository {
     pub pool: crate::db::DbPool,
 }
 
-#[cfg(not(tarpaulin_include))]
 #[async_trait]
 impl CddRepository for PgRepository {
     async fn find_user_by_username(&self, username: String) -> Result<Option<User>, Error> {

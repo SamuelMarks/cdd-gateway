@@ -1,34 +1,48 @@
-# WebAssembly (WASM) Support
+# WebAssembly (WASM) Integration
 
-This document outlines the state of WebAssembly generation capabilities in the CDD offline-first ecosystem.
+A core strength of the `cdd-*` ecosystem is its ability to compile language-specific generators into WebAssembly (WASM) and WebAssembly System Interface (WASI) modules. This allows instantaneous, zero-latency code generation across any platform, including directly within a user's web browser, without requiring a network connection or native toolchains.
 
-## Strategy
-The primary advantage of the CDD framework is providing instantaneous, zero-latency code generation via client-side WebAssembly. 
+## Execution Environments
 
-To acquire WASM engines for each language:
-1. The 13 `cdd-*` ecosystems are now bundled as git submodules tracking the latest `master` commits within the `sdks/` directory.
-2. Running the WASM variant binaries (`cdd-ctl-wasm` and `cdd-rpc-wasm`) configures `wasmtime` locally to instantiate `.wasm` bytecode targets built natively from the checked-out source code without relying on stale network releases.
-3. A JSON configuration matrix (`wasm-support.json`) is dynamically emitted documenting which binaries successfully loaded and which failed.
+`cdd-ctl` supports WASM execution through two primary channels:
 
+### 1. Backend Sandboxing (`cdd-ctl-wasm` & `cdd-rpc-wasm`)
+Using `wasmtime`, `cdd-ctl` can evaluate `.wasm` payloads on the backend instead of spawning native OS processes. This provides a high-security, heavily sandboxed execution environment ideal for multi-tenant SaaS deployments where untrusted OpenAPI specifications are processed.
 
-## Browser-Native SDK
-Because code generation relies on standalone WASM outputs, the overarching `cdd-ctl` project maintains a dedicated JavaScript library (`cdd-ctl-wasm-sdk`). This package initializes a WASI sandbox utilizing `@bjorn3/browser_wasi_shim`, mounts virtual filesystem descriptors, executes `.wasm` payloads directly in the browser's thread, and dynamically collects generated output files—enabling pure offline code generation inside frontend contexts.
+### 2. Frontend / Embedded (`cdd-ctl-wasm-sdk`)
+The `cdd-ctl-wasm-sdk` package is a dedicated TypeScript library that uses `@bjorn3/browser_wasi_shim` to execute `.wasm` files directly in the browser. It mounts virtual filesystem descriptors, captures `stdout`/`stderr`, and returns the generated code artifacts natively to the frontend JavaScript context.
+
+## Acquiring WASM Binaries
+
+WASM binaries can be acquired via the bundled helper script, which downloads the latest stable releases from GitHub or attempts a local build fallback if releases are unavailable:
+
+```bash
+./scripts/fetch_wasm.sh
+```
+This script downloads artifacts into `cdd-ctl-wasm-sdk/assets/wasm/` and generates a `wasm-support.json` matrix.
+
+## Current WASM Support Matrix
+
+Extensive testing via `wasmtime` has yielded the following support constraints and capabilities for the 13 `cdd-*` ecosystems:
+
+| Language Tool | Status | Execution Notes & Requirements |
+| :--- | :---: | :--- |
+| **`cdd-c`** | ✅ Supported | Executes cleanly via standard WASI. |
+| **`cdd-cpp`** | ⚠️ Partial | Requires specific `env` syscall imports (e.g., `__syscall_getdents64`). |
+| **`cdd-csharp`** | ⚠️ Partial | Requires Mono JS bindings (`mono_wasm_bind_js_import_ST`) typically provided by the browser environment. |
+| **`cdd-go`** | ✅ Supported | Executes cleanly via standard WASI. |
+| **`cdd-java`** | 🔴 Unsupported | Unsupported natively due to heavy reliance on Reflection, `java.nio`, and Sockets. Use JAR/Docker instead. |
+| **`cdd-kotlin`** | ⚠️ Partial | Requires the WebAssembly GC feature to be enabled (e.g., `wasmtime --wasm-features=gc`). |
+| **`cdd-php`** | ✅ Supported | Executes cleanly via standard WASI (requires proper input file context). |
+| **`cdd-python`** | 🔴 Unavailable | Upstream build currently failing or missing release artifacts. |
+| **`cdd-ruby`** | ⚠️ Partial | Requires the Ruby JS ABI host (`rb-js-abi-host`) injected into the environment. |
+| **`cdd-rust`** | ✅ Supported | Executes cleanly via standard WASI. |
+| **`cdd-sh`** | 🔴 N/A | Shell scripts are not applicable for WASM compilation. |
+| **`cdd-swift`** | ✅ Supported | Executes cleanly via standard WASI. |
+| **`cdd-ts`** | ⚠️ Partial | Requires Node.js filesystem polyfills (`node:fs`) injected into the WASI shim. |
 
 ## Fallback Gracefulness
-If a WASM generator fails to load or cannot be acquired:
-- **Frontend Integration**: The Web UI dynamically reads the support matrix at launch. Languages missing a WASM generator will be gracefully greyed out (using `filter: grayscale(100%)`) and explicitly flagged as "Not available in WASM." The user cannot actively toggle generation for these unsupported tools. Should a backend invocation fail natively during evaluation, a resilient string noting that a "Fallback mock [has been] activated" prevents the entire UI state from crashing. 
-- **Backend Fallback**: If called programmatically or directly via the `cdd-ctl` daemon without loaded WASM execution engines, the service logs the discrepancy to standard output, bypasses process instantiation, and returns safe generation placeholders indicating offline fallback states rather than throwing raw internal process exits.
 
-## Current Support Matrix
-
-*Note: This status corresponds to the simulated mock compilation environment capabilities at the time of writing.*
-
-| Language Tool | Online Release | Local Build Fallback | Status | 
-| :--- | :---: | :---: | :---: |
-| **`cdd-typescript`** | ❌ Missing | ❌ Failed | 🔴 Unsupported |
-| **`cdd-python`** | ❌ Missing | ❌ Failed | 🔴 Unsupported |
-| **`cdd-rust`** | ❌ Missing | ❌ Failed | 🔴 Unsupported |
-| **`cdd-go`** | ❌ Missing | ❌ Failed | 🔴 Unsupported |
-| **`cdd-java`** | ❌ Missing | ❌ Failed | 🔴 Unsupported |
-
-*In genuine usage environments, Rust and Python typically compile flawlessly under WASI (wasm32-wasi).*
+If a specific `cdd-*` tool lacks WASM support (e.g., `cdd-java` or `cdd-sh`), the architecture degrades gracefully:
+- **Frontend**: The Web UI dynamically reads the `wasm-support.json` matrix at launch. Unsupported languages are explicitly flagged and greyed out to prevent execution errors.
+- **Backend (`cdd-ctl-wasm`)**: If requested via the API, the backend will identify the missing WASM capability and gracefully fall back to the native binary equivalent (if configured) or return a descriptive `400 Bad Request` indicating that the target ecosystem requires a native runtime.

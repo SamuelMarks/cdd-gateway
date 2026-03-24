@@ -9,17 +9,21 @@ This project is written natively in **Rust** and adheres strictly to a 100% test
 1. **Rust (Stable)**: Install via [rustup.rs](https://rustup.rs/).
 2. **PostgreSQL**: Used for local development and testing data models.
 3. **Diesel CLI**: Installed via `cargo install diesel_cli --no-default-features --features postgres`.
-4. **Cargo Tarpaulin**: Installed via `cargo install cargo-tarpaulin` (used for test coverage).
-5. **Git** & **pre-commit** (`pip install pre-commit` or `brew install pre-commit`).
+4. **Wasmtime**: Installed via `curl https://wasmtime.dev/install.sh -sSf | bash`. Required for testing WASM functionality.
+5. **Cargo Tarpaulin**: Installed via `cargo install cargo-tarpaulin` (used for test coverage).
+6. **Git** & **pre-commit**: (`pip install pre-commit` or `brew install pre-commit`).
 
 ## Getting Started
 
-Clone the repository and install the pre-commit hooks:
+Clone the repository and install the pre-commit hooks. To ensure all 13 supported languages are fully operational during testing, you must initialize the submodules and fetch the WASM binaries:
 
 ```bash
 git clone --recursive https://github.com/SamuelMarks/cdd-ctl
 cd cdd-ctl
 pre-commit install
+
+# Fetch WASM binaries and establish the wasm-support.json matrix
+./scripts/fetch_wasm.sh
 ```
 
 ## Build System
@@ -34,20 +38,22 @@ The project uses standard Rust `cargo` commands wrapped by a helper `Makefile` (
 - **To build the project executable:**
   ```bash
   make build
-  # Or simply: cargo build --release
+  # Or natively: cargo build --release
+  # Or for WASM support: cargo build --bin cdd-ctl-wasm --release
   ```
 
 - **To run the executable:**
   ```bash
   make run
-  # Or simply: cargo run --bin cdd-ctl -- --bind 0.0.0.0:8080
-  # To run the RPC version: cargo run --bin cdd-rpc -- --bind 0.0.0.0:8080
+  # Native REST API Gateway: cargo run --bin cdd-ctl -- --bind 0.0.0.0:8080
+  # Native JSON-RPC variant: cargo run --bin cdd-rpc -- --bind 0.0.0.0:8080
+  # WASM REST variant: cargo run --bin cdd-ctl-wasm -- --bind 0.0.0.0:8081
   ```
 
 - **To run tests (Required before opening a PR):**
   ```bash
   make test
-  # Or simply: cargo test
+  # Or simply: cargo test --all-features
   ```
 
 - **To calculate coverage and update README shields:**
@@ -74,6 +80,7 @@ We recommend reading [ARCHITECTURE.md](ARCHITECTURE.md) to understand how the co
 - `src/lib.rs`: The core library implementing API gateways, DB interactions, and daemon logic.
 - `src/bin/`: Contains the four executable entry points (`cdd-ctl`, `cdd-ctl-wasm`, `cdd-rpc`, `cdd-rpc-wasm`).
 - `sdks/`: Git submodules for all 13 `cdd-*` ecosystems pinned to their latest `master`.
+- `cdd-ctl-wasm-sdk/`: TypeScript WASM execution layer for browser embedding.
 - `src/api/`: Actix-web route definitions, DTO payloads, and OpenAPI integration (`utoipa`).
 - `src/db/`: Diesel ORM mappings, Postgres schema generation, and the `CddRepository` data access traits.
 - `src/daemon.rs`: The cross-platform, async `ProcessManager` daemon utility.

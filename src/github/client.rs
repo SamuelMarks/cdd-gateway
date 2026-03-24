@@ -1,5 +1,6 @@
 #![cfg(not(tarpaulin_include))]
 
+
 use crate::github::models::*;
 use async_trait::async_trait;
 use mockall::automock;
@@ -106,7 +107,6 @@ struct CreateSecretRequest<'a> {
     key_id: &'a str,
 }
 
-#[cfg(not(tarpaulin_include))]
 impl ReqwestGitHubClient {
     /// Create a new ReqwestGitHubClient
     pub fn new(client_id: String, client_secret: String) -> Self {
@@ -144,7 +144,6 @@ impl ReqwestGitHubClient {
     }
 }
 
-#[cfg(not(tarpaulin_include))]
 #[async_trait]
 impl GitHubClient for ReqwestGitHubClient {
     async fn exchange_code(&self, code: &str) -> Result<String, String> {

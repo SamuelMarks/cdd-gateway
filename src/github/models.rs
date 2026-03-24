@@ -1,4 +1,3 @@
-#![cfg(not(tarpaulin_include))]
 
 use serde::{Deserialize, Serialize};
 

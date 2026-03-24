@@ -1,5 +1,6 @@
 #![cfg(not(tarpaulin_include))]
 
+
 /// Auth module
 pub mod auth;
 /// Auth middleware module

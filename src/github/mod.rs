@@ -1,4 +1,3 @@
-#![cfg(not(tarpaulin_include))]
 
 /// GitHub API client
 pub mod client;

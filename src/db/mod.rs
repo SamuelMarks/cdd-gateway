@@ -1,4 +1,3 @@
-#![cfg(not(tarpaulin_include))]
 
 /// Models module
 pub mod models;

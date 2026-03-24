@@ -1,6 +1,5 @@
 #![deny(missing_docs)]
 
-#![cfg(not(tarpaulin_include))]
 
 //! cdd-ctl core library
 

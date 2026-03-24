@@ -149,6 +149,13 @@ docker-compose up -d
 docker-compose logs -f
 ```
 
+### 4.1. Deploying the WASM Variant via Docker
+To deploy the highly secure WASM execution engine instead of the native daemon spawner, adjust the command in your `docker-compose.yml` to target the WASM binary and ensure `wasmtime` is available in your Docker image (or use a dedicated WASM-enabled Dockerfile):
+
+```yaml
+    command: ["/usr/local/bin/cdd-ctl-wasm", "--bind", "0.0.0.0:8080", "--config", "/etc/cdd-ctl/config.json"]
+```
+
 ---
 
 ## 5. macOS (launchd)
