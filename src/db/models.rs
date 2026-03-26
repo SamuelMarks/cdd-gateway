@@ -8,7 +8,16 @@ use crate::db::schema::*;
 
 /// User model representing an authenticated user or synced GitHub user.
 #[derive(
-    Debug, Clone, Queryable, Selectable, Insertable, Identifiable, Serialize, Deserialize, ToSchema, PartialEq,
+    Debug,
+    Clone,
+    Queryable,
+    Selectable,
+    Insertable,
+    Identifiable,
+    Serialize,
+    Deserialize,
+    ToSchema,
+    PartialEq,
 )]
 #[diesel(table_name = users)]
 pub struct User {
@@ -39,7 +48,16 @@ pub struct UpdateUser<'a> {
 }
 
 #[derive(
-    Debug, Clone, Queryable, Selectable, Insertable, Identifiable, Serialize, Deserialize, ToSchema, PartialEq,
+    Debug,
+    Clone,
+    Queryable,
+    Selectable,
+    Insertable,
+    Identifiable,
+    Serialize,
+    Deserialize,
+    ToSchema,
+    PartialEq,
 )]
 #[diesel(table_name = organizations)]
 pub struct Organization {
@@ -66,7 +84,16 @@ pub struct UpdateOrganization<'a> {
 }
 
 #[derive(
-    Debug, Clone, Queryable, Selectable, Insertable, Identifiable, Serialize, Deserialize, ToSchema, PartialEq,
+    Debug,
+    Clone,
+    Queryable,
+    Selectable,
+    Insertable,
+    Identifiable,
+    Serialize,
+    Deserialize,
+    ToSchema,
+    PartialEq,
 )]
 #[diesel(table_name = organization_users)]
 #[diesel(primary_key(organization_id, user_id))]
@@ -91,7 +118,16 @@ pub struct UpdateOrganizationUser<'a> {
 }
 
 #[derive(
-    Debug, Clone, Queryable, Selectable, Insertable, Identifiable, Serialize, Deserialize, ToSchema, PartialEq,
+    Debug,
+    Clone,
+    Queryable,
+    Selectable,
+    Insertable,
+    Identifiable,
+    Serialize,
+    Deserialize,
+    ToSchema,
+    PartialEq,
 )]
 #[diesel(table_name = repositories)]
 pub struct Repository {
@@ -121,7 +157,16 @@ pub struct UpdateRepository<'a> {
 }
 
 #[derive(
-    Debug, Clone, Queryable, Selectable, Insertable, Identifiable, Serialize, Deserialize, ToSchema, PartialEq,
+    Debug,
+    Clone,
+    Queryable,
+    Selectable,
+    Insertable,
+    Identifiable,
+    Serialize,
+    Deserialize,
+    ToSchema,
+    PartialEq,
 )]
 #[diesel(table_name = releases)]
 pub struct Release {

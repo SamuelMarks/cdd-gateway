@@ -1,6 +1,5 @@
 #![cfg(not(tarpaulin_include))]
 
-
 use crate::github::models::*;
 use async_trait::async_trait;
 use mockall::automock;
@@ -139,7 +138,12 @@ impl ReqwestGitHubClient {
         e.to_string()
     }
 
-    fn build_request(&self, method: reqwest::Method, url: &str, token: &str) -> reqwest::RequestBuilder {
+    fn build_request(
+        &self,
+        method: reqwest::Method,
+        url: &str,
+        token: &str,
+    ) -> reqwest::RequestBuilder {
         self.client.request(method, url).bearer_auth(token)
     }
 }
@@ -152,7 +156,8 @@ impl GitHubClient for ReqwestGitHubClient {
             client_secret: &self.client_secret,
             code,
         };
-        let res: ExchangeResponse = self.client
+        let res: ExchangeResponse = self
+            .client
             .post("https://github.com/login/oauth/access_token")
             .json(&req)
             .send()
@@ -165,7 +170,9 @@ impl GitHubClient for ReqwestGitHubClient {
         if let Some(token) = res.access_token {
             Ok(token)
         } else {
-            Err(res.error_description.unwrap_or_else(|| "Unknown exchange error".into()))
+            Err(res
+                .error_description
+                .unwrap_or_else(|| "Unknown exchange error".into()))
         }
     }
 
@@ -182,27 +189,35 @@ impl GitHubClient for ReqwestGitHubClient {
     }
 
     async fn get_emails(&self, token: &str) -> Result<Vec<GitHubEmail>, String> {
-        self.build_request(reqwest::Method::GET, "https://api.github.com/user/emails", token)
-            .send()
-            .await
-            .map_err(Self::map_err)?
-            .error_for_status()
-            .map_err(Self::map_err)?
-            .json()
-            .await
-            .map_err(Self::map_err)
+        self.build_request(
+            reqwest::Method::GET,
+            "https://api.github.com/user/emails",
+            token,
+        )
+        .send()
+        .await
+        .map_err(Self::map_err)?
+        .error_for_status()
+        .map_err(Self::map_err)?
+        .json()
+        .await
+        .map_err(Self::map_err)
     }
 
     async fn list_orgs(&self, token: &str) -> Result<Vec<GitHubOrg>, String> {
-        self.build_request(reqwest::Method::GET, "https://api.github.com/user/orgs", token)
-            .send()
-            .await
-            .map_err(Self::map_err)?
-            .error_for_status()
-            .map_err(Self::map_err)?
-            .json()
-            .await
-            .map_err(Self::map_err)
+        self.build_request(
+            reqwest::Method::GET,
+            "https://api.github.com/user/orgs",
+            token,
+        )
+        .send()
+        .await
+        .map_err(Self::map_err)?
+        .error_for_status()
+        .map_err(Self::map_err)?
+        .json()
+        .await
+        .map_err(Self::map_err)
     }
 
     async fn list_repos(&self, token: &str, org: &str) -> Result<Vec<GitHubRepo>, String> {
@@ -253,7 +268,10 @@ impl GitHubClient for ReqwestGitHubClient {
         workflow_id: &str,
         ref_branch: &str,
     ) -> Result<(), String> {
-        let url = format!("https://api.github.com/repos/{}/{}/actions/workflows/{}/dispatches", owner, repo, workflow_id);
+        let url = format!(
+            "https://api.github.com/repos/{}/{}/actions/workflows/{}/dispatches",
+            owner, repo, workflow_id
+        );
         let req = TriggerWorkflowRequest { ref_branch };
         self.build_request(reqwest::Method::POST, &url, token)
             .json(&req)
@@ -271,7 +289,10 @@ impl GitHubClient for ReqwestGitHubClient {
         owner: &str,
         repo: &str,
     ) -> Result<GitHubPublicKey, String> {
-        let url = format!("https://api.github.com/repos/{}/{}/actions/secrets/public-key", owner, repo);
+        let url = format!(
+            "https://api.github.com/repos/{}/{}/actions/secrets/public-key",
+            owner, repo
+        );
         self.build_request(reqwest::Method::GET, &url, token)
             .send()
             .await
@@ -292,7 +313,10 @@ impl GitHubClient for ReqwestGitHubClient {
         encrypted_value: &str,
         key_id: &str,
     ) -> Result<(), String> {
-        let url = format!("https://api.github.com/repos/{}/{}/actions/secrets/{}", owner, repo, secret_name);
+        let url = format!(
+            "https://api.github.com/repos/{}/{}/actions/secrets/{}",
+            owner, repo, secret_name
+        );
         let req = CreateSecretRequest {
             encrypted_value,
             key_id,

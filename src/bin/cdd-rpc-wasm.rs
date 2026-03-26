@@ -1,7 +1,5 @@
 #![cfg(not(tarpaulin_include))]
-
 #![deny(missing_docs)]
-
 #![warn(missing_docs)]
 
 //! cdd-ctl: Daemon manage >13 processes and act as API gateway and authentication layer.

@@ -1,7 +1,5 @@
 #![cfg(not(tarpaulin_include))]
-
 #![deny(missing_docs)]
-
 #![warn(missing_docs)]
 
 //! cdd-ctl: Daemon manage >13 processes and act as API gateway and authentication layer.
@@ -10,8 +8,8 @@
 use actix_web::{web, App, HttpServer};
 use cdd_ctl::{api, db};
 use clap::{Parser, Subcommand};
-use std::process::Command;
 use log::{error, info};
+use std::process::Command;
 use std::sync::Arc;
 
 use cdd_ctl::AppConfig;
@@ -37,7 +35,6 @@ struct Args {
     /// Override the bind address
     bind: Option<String>,
 }
-
 
 #[derive(Subcommand, Debug)]
 enum Commands {
@@ -66,7 +63,6 @@ async fn main() -> std::io::Result<()> {
     dotenvy::dotenv().ok();
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
-    
     let args = Args::parse();
 
     if let Some(Commands::ToDocsJson {
@@ -106,7 +102,6 @@ async fn main() -> std::io::Result<()> {
         std::io::Write::write_all(&mut std::io::stdout(), &output.stdout).unwrap();
         return Ok(());
     }
-
 
     let mut app_config = match AppConfig::load(args.config.as_deref()) {
         Ok(c) => c,

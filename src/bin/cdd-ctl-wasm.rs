@@ -1,7 +1,5 @@
 #![cfg(not(tarpaulin_include))]
-
 #![deny(missing_docs)]
-
 #![warn(missing_docs)]
 
 //! cdd-ctl: Daemon manage >13 processes and act as API gateway and authentication layer.
@@ -10,8 +8,8 @@
 use actix_web::{web, App, HttpServer};
 use cdd_ctl::{api, db};
 use clap::{Parser, Subcommand};
-use std::process::Command;
 use log::{error, info};
+use std::process::Command;
 use std::sync::Arc;
 
 use cdd_ctl::AppConfig;
@@ -66,7 +64,6 @@ async fn main() -> std::io::Result<()> {
     std::env::set_var("WASM_EXECUTION_MODE", "1");
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
-    
     let args = Args::parse();
 
     if let Some(Commands::ToDocsJson {
@@ -97,18 +94,20 @@ async fn main() -> std::io::Result<()> {
         let wasm_file = format!("cdd-ctl-wasm-sdk/assets/wasm/{}.wasm", target);
 
         // Make input accessible to WASI
-        let input_path = std::path::Path::new(&input).canonicalize().unwrap_or_else(|_| std::path::PathBuf::from(&input));
+        let input_path = std::path::Path::new(&input)
+            .canonicalize()
+            .unwrap_or_else(|_| std::path::PathBuf::from(&input));
         let input_dir = input_path.parent().unwrap();
         let filename = input_path.file_name().unwrap().to_string_lossy();
         cmd.arg(format!("--dir={}::/workspace", input_dir.display()));
-        
+
         cmd.arg(&wasm_file);
-        
+
         // Pass arguments to WASM binary
         cmd.arg("--");
         cmd.arg("to_docs_json");
         cmd.arg("-i").arg(format!("/workspace/{}", filename));
-        
+
         if no_imports {
             cmd.arg("--no-imports");
         }
@@ -129,7 +128,6 @@ async fn main() -> std::io::Result<()> {
         std::io::Write::write_all(&mut std::io::stdout(), &output.stdout).unwrap();
         return Ok(());
     }
-
 
     let mut app_config = match AppConfig::load(args.config.as_deref()) {
         Ok(c) => c,

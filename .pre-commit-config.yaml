@@ -1,7 +1,7 @@
 repos:
--   repo: local
+  - repo: local
     hooks:
-    -   id: cargo-fmt
+      - id: cargo-fmt
         name: cargo fmt
         description: Format files with rustfmt.
         entry: bash -c 'cargo fmt --all -- --check || (cargo fmt --all && exit 1)'
@@ -9,7 +9,7 @@ repos:
         types: [rust]
         pass_filenames: false
 
-    -   id: cargo-check
+      - id: cargo-check
         name: cargo check
         description: Check the package for errors.
         entry: cargo check --workspace
@@ -17,7 +17,7 @@ repos:
         types: [rust]
         pass_filenames: false
 
-    -   id: cargo-test
+      - id: cargo-test
         name: cargo test
         description: Run tests.
         entry: cargo test --workspace
@@ -25,7 +25,7 @@ repos:
         types: [rust]
         pass_filenames: false
 
-    -   id: coverage-shields
+      - id: coverage-shields
         name: Update Coverage Shields
         description: Run tarpaulin and update README.md shields
         entry: bash -c './scripts/update_shields.sh'

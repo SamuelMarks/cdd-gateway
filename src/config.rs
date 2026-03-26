@@ -1,6 +1,5 @@
 #![cfg(not(tarpaulin_include))]
 
-
 use crate::daemon::ProcessConfig;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

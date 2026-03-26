@@ -1,6 +1,5 @@
 #![cfg(not(tarpaulin_include))]
 
-
 use crate::db::repository::CddRepository;
 use crate::github::client::GitHubClient;
 use actix_web::{web, HttpResponse, Responder};
@@ -619,8 +618,12 @@ mod additional_tests {
         let mock_gh = MockGitHubClient::new();
         let app = test::init_service(
             App::new()
-                .app_data(web::Data::new(std::sync::Arc::new(mock_repo) as std::sync::Arc<dyn CddRepository>))
-                .app_data(web::Data::new(std::sync::Arc::new(mock_gh) as std::sync::Arc<dyn GitHubClient>))
+                .app_data(web::Data::new(
+                    std::sync::Arc::new(mock_repo) as std::sync::Arc<dyn CddRepository>
+                ))
+                .app_data(web::Data::new(
+                    std::sync::Arc::new(mock_gh) as std::sync::Arc<dyn GitHubClient>
+                ))
                 .configure(configure),
         )
         .await;

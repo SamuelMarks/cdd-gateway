@@ -1,14 +1,13 @@
 #![cfg(not(tarpaulin_include))]
 
-
 use crate::db::models::*;
 use crate::db::schema::*;
+use actix_web::web;
 use async_trait::async_trait;
 use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
 use diesel::result::Error;
 use mockall::automock;
-use actix_web::web;
 
 /// Database repository trait for handling CRUD operations.
 #[automock]
@@ -107,10 +106,11 @@ pub trait CddRepository: Send + Sync {
     ) -> Result<Release, Error>;
 }
 
-
 impl PgRepository {
     /// Helper to get a database connection
-    pub fn get_conn(&self) -> Result<r2d2::PooledConnection<ConnectionManager<PgConnection>>, Error> {
+    pub fn get_conn(
+        &self,
+    ) -> Result<r2d2::PooledConnection<ConnectionManager<PgConnection>>, Error> {
         self.pool.get().map_err(|e| {
             log::error!("Failed to get DB connection: {}", e);
             Error::NotFound
@@ -143,14 +143,9 @@ impl CddRepository for PgRepository {
 
     async fn find_user_by_id(&self, id: i32) -> Result<Option<User>, Error> {
         let mut conn = self.get_conn()?;
-        web::block(move || {
-            users::table
-                .find(id)
-                .first::<User>(&mut conn)
-                .optional()
-        })
-        .await
-        .map_err(|_| Error::NotFound)?
+        web::block(move || users::table.find(id).first::<User>(&mut conn).optional())
+            .await
+            .map_err(|_| Error::NotFound)?
     }
 
     async fn create_user(
@@ -194,10 +189,7 @@ impl CddRepository for PgRepository {
                 .values(&new_user)
                 .on_conflict(users::github_id)
                 .do_update()
-                .set((
-                    users::username.eq(&username),
-                    users::email.eq(&email),
-                ))
+                .set((users::username.eq(&username), users::email.eq(&email)))
                 .get_result::<User>(&mut conn)
         })
         .await
@@ -279,7 +271,10 @@ impl CddRepository for PgRepository {
             };
             diesel::insert_into(organization_users::table)
                 .values(&new_link)
-                .on_conflict((organization_users::organization_id, organization_users::user_id))
+                .on_conflict((
+                    organization_users::organization_id,
+                    organization_users::user_id,
+                ))
                 .do_update()
                 .set(organization_users::role.eq(&role))
                 .get_result::<OrganizationUser>(&mut conn)

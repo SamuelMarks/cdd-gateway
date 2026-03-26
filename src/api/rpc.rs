@@ -1,4 +1,3 @@
-
 use crate::api::VersionResponse;
 use crate::db::repository::CddRepository;
 use crate::github::client::GitHubClient;
@@ -114,7 +113,7 @@ pub async fn rpc_handler(
                 .and_then(|p| p.get("target_language"))
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
-                
+
             let target = if target_language.starts_with("cdd-") {
                 target_language.to_string()
             } else {
@@ -123,7 +122,17 @@ pub async fn rpc_handler(
 
             let is_wasm = std::env::var("WASM_EXECUTION_MODE").unwrap_or_default() == "1";
             if is_wasm {
-                if matches!(target.as_str(), "cdd-java" | "cdd-python" | "cdd-sh" | "cdd-cpp" | "cdd-csharp" | "cdd-kotlin" | "cdd-ruby" | "cdd-ts") {
+                if matches!(
+                    target.as_str(),
+                    "cdd-java"
+                        | "cdd-python"
+                        | "cdd-sh"
+                        | "cdd-cpp"
+                        | "cdd-csharp"
+                        | "cdd-kotlin"
+                        | "cdd-ruby"
+                        | "cdd-ts"
+                ) {
                     return HttpResponse::BadRequest().json(RpcResponse::error(
                         400,
                         format!("Error: The target '{}' is currently unsupported or unavailable for WebAssembly execution.", target),
@@ -159,8 +168,12 @@ pub async fn rpc_handler(
                 if target == "cdd-kotlin" {
                     cmd.arg("--wasm-features=gc");
                 }
-                let input_path = std::path::Path::new(&input).canonicalize().unwrap_or_else(|_| std::path::PathBuf::from(&input));
-                let input_dir = input_path.parent().unwrap_or_else(|| std::path::Path::new(""));
+                let input_path = std::path::Path::new(&input)
+                    .canonicalize()
+                    .unwrap_or_else(|_| std::path::PathBuf::from(&input));
+                let input_dir = input_path
+                    .parent()
+                    .unwrap_or_else(|| std::path::Path::new(""));
                 cmd.arg(format!("--dir={}::/workspace", input_dir.display()));
                 let wasm_file = format!("cdd-ctl-wasm-sdk/assets/wasm/{}.wasm", target);
                 cmd.arg(&wasm_file);
@@ -168,15 +181,23 @@ pub async fn rpc_handler(
                 cmd.arg("to_docs_json");
                 let filename = input_path.file_name().unwrap_or_default().to_string_lossy();
                 cmd.arg("-i").arg(format!("/workspace/{}", filename));
-                
-                if no_imports { cmd.arg("--no-imports"); }
-                if no_wrapping { cmd.arg("--no-wrapping"); }
+
+                if no_imports {
+                    cmd.arg("--no-imports");
+                }
+                if no_wrapping {
+                    cmd.arg("--no-wrapping");
+                }
             } else {
                 cmd = std::process::Command::new(&target);
                 cmd.arg("to_docs_json");
                 cmd.arg("-i").arg(input);
-                if no_imports { cmd.arg("--no-imports"); }
-                if no_wrapping { cmd.arg("--no-wrapping"); }
+                if no_imports {
+                    cmd.arg("--no-imports");
+                }
+                if no_wrapping {
+                    cmd.arg("--no-wrapping");
+                }
             }
 
             match cmd.output() {
@@ -201,13 +222,11 @@ pub async fn rpc_handler(
                         ))
                     }
                 }
-                Err(e) => {
-                    HttpResponse::InternalServerError().json(RpcResponse::error(
-                        500,
-                        format!("Failed to execute '{}': {}", target, e),
-                        req.id.clone(),
-                    ))
-                }
+                Err(e) => HttpResponse::InternalServerError().json(RpcResponse::error(
+                    500,
+                    format!("Failed to execute '{}': {}", target, e),
+                    req.id.clone(),
+                )),
             }
         }
         _ => HttpResponse::Ok().json(RpcResponse::error(

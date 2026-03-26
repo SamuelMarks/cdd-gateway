@@ -31,11 +31,13 @@ pre-commit install
 The project uses standard Rust `cargo` commands wrapped by a helper `Makefile` (and `make.bat` for Windows) for convenience.
 
 - **To install base dependencies:**
+
   ```bash
   make install_base
   ```
 
 - **To build the project executable:**
+
   ```bash
   make build
   # Or natively: cargo build --release
@@ -43,6 +45,7 @@ The project uses standard Rust `cargo` commands wrapped by a helper `Makefile` (
   ```
 
 - **To run the executable:**
+
   ```bash
   make run
   # Native REST API Gateway: cargo run --bin cdd-ctl -- --bind 0.0.0.0:8080
@@ -51,18 +54,21 @@ The project uses standard Rust `cargo` commands wrapped by a helper `Makefile` (
   ```
 
 - **To run tests (Required before opening a PR):**
+
   ```bash
   make test
   # Or simply: cargo test --all-features
   ```
 
 - **To calculate coverage and update README shields:**
+
   ```bash
   cargo tarpaulin --out Lcov
   ./scripts/update_shields.sh
   ```
 
 - **To format code and run the linter (Required by CI):**
+
   ```bash
   cargo fmt
   cargo clippy --all-targets --all-features -- -D warnings

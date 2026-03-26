@@ -1,6 +1,5 @@
 #![deny(missing_docs)]
 
-
 //! cdd-ctl core library
 
 /// API modules

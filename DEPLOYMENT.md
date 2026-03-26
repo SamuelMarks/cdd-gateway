@@ -1,6 +1,6 @@
 # Deployment Guide (`cdd-ctl`)
 
-This guide provides examples for deploying `cdd-ctl` as a background service across various operating systems and environments. Since `cdd-ctl` acts as a daemon manager for 13 external `cdd-*` JSON-RPC servers, running it reliably is critical. 
+This guide provides examples for deploying `cdd-ctl` as a background service across various operating systems and environments. Since `cdd-ctl` acts as a daemon manager for 13 external `cdd-*` JSON-RPC servers, running it reliably is critical.
 
 The application is built to handle its own internal process lifecycle (retries, logging, graceful shutdown), but the host OS must ensure `cdd-ctl` itself stays alive.
 
@@ -43,6 +43,7 @@ sudo systemctl status cdd-ctl
 ```
 
 3. View logs:
+
 ```bash
 journalctl -u cdd-ctl -f
 ```
@@ -123,7 +124,7 @@ If you are running in a containerized environment, you can map your local config
 1. Create a `docker-compose.yml`:
 
 ```yaml
-version: '3.8'
+version: "3.8"
 
 services:
   cdd-ctl:
@@ -144,16 +145,25 @@ services:
 ```
 
 2. Run the stack:
+
 ```bash
 docker-compose up -d
 docker-compose logs -f
 ```
 
 ### 4.1. Deploying the WASM Variant via Docker
+
 To deploy the highly secure WASM execution engine instead of the native daemon spawner, adjust the command in your `docker-compose.yml` to target the WASM binary and ensure `wasmtime` is available in your Docker image (or use a dedicated WASM-enabled Dockerfile):
 
 ```yaml
-    command: ["/usr/local/bin/cdd-ctl-wasm", "--bind", "0.0.0.0:8080", "--config", "/etc/cdd-ctl/config.json"]
+command:
+  [
+    "/usr/local/bin/cdd-ctl-wasm",
+    "--bind",
+    "0.0.0.0:8080",
+    "--config",
+    "/etc/cdd-ctl/config.json",
+  ]
 ```
 
 ---
@@ -171,7 +181,7 @@ To run `cdd-ctl` as a background daemon on macOS, you use `launchd`.
 <dict>
     <key>Label</key>
     <string>com.offscale.cdd-ctl</string>
-    
+
     <key>ProgramArguments</key>
     <array>
         <string>/usr/local/bin/cdd-ctl (or /usr/local/bin/cdd-ctl-wasm, /usr/local/bin/cdd-rpc, /usr/local/bin/cdd-rpc-wasm)</string>
@@ -180,19 +190,19 @@ To run `cdd-ctl` as a background daemon on macOS, you use `launchd`.
         <string>--config</string>
         <string>/usr/local/etc/cdd-ctl/config.json</string>
     </array>
-    
+
     <key>EnvironmentVariables</key>
     <dict>
         <key>RUST_LOG</key>
         <string>info</string>
     </dict>
-    
+
     <key>RunAtLoad</key>
     <true/>
-    
+
     <key>KeepAlive</key>
     <true/>
-    
+
     <key>StandardOutPath</key>
     <string>/usr/local/var/log/cdd-ctl.log</string>
     <key>StandardErrorPath</key>
@@ -227,6 +237,7 @@ user=cdd-user
 ```
 
 2. Update Supervisor:
+
 ```bash
 sudo supervisorctl reread
 sudo supervisorctl update

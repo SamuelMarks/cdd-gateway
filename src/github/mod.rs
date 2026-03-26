@@ -1,4 +1,3 @@
-
 /// GitHub API client
 pub mod client;
 /// GitHub API models
