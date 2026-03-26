@@ -36,6 +36,7 @@ struct Args {
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenvy::dotenv().ok();
+    std::env::set_var("WASM_EXECUTION_MODE", "1");
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
     let args = Args::parse();

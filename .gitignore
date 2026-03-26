@@ -47,3 +47,23 @@ patch.py
 patch_get_conn.rs
 patch_impl.rs
 patch_schema.sh
+
+# Temporary scripts
+fix_*.py
+patch_*.py
+clean_*.py
+update_*.py
+debug_*.py
+*.patch
+
+# Test and temporary files
+test*.json
+test*.js
+*.orig
+
+# WASI dependencies and build dirs
+wasi-sdk*/
+wasi-sdk.tar.gz
+wasi-vfs
+wasi-vfs.zip
+build_wasi/

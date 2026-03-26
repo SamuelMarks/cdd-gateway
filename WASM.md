@@ -25,21 +25,21 @@ This script downloads artifacts into `cdd-ctl-wasm-sdk/assets/wasm/` and generat
 
 Extensive testing via `wasmtime` has yielded the following support constraints and capabilities for the 13 `cdd-*` ecosystems:
 
-| Language Tool | Status | Execution Notes & Requirements |
+| Language Target | WASM Status | Execution Notes & Requirements |
 | :--- | :---: | :--- |
-| **`cdd-c`** | ✅ Supported | Executes cleanly via standard WASI. |
-| **`cdd-cpp`** | ⚠️ Partial | Requires specific `env` syscall imports (e.g., `__syscall_getdents64`). |
-| **`cdd-csharp`** | ⚠️ Partial | Requires Mono JS bindings (`mono_wasm_bind_js_import_ST`) typically provided by the browser environment. |
-| **`cdd-go`** | ✅ Supported | Executes cleanly via standard WASI. |
-| **`cdd-java`** | 🔴 Unsupported | Unsupported natively due to heavy reliance on Reflection, `java.nio`, and Sockets. Use JAR/Docker instead. |
-| **`cdd-kotlin`** | ⚠️ Partial | Requires the WebAssembly GC feature to be enabled (e.g., `wasmtime --wasm-features=gc`). |
-| **`cdd-php`** | ✅ Supported | Executes cleanly via standard WASI (requires proper input file context). |
-| **`cdd-python`** | 🔴 Unavailable | Upstream build currently failing or missing release artifacts. |
-| **`cdd-ruby`** | ⚠️ Partial | Requires the Ruby JS ABI host (`rb-js-abi-host`) injected into the environment. |
-| **`cdd-rust`** | ✅ Supported | Executes cleanly via standard WASI. |
-| **`cdd-sh`** | 🔴 N/A | Shell scripts are not applicable for WASM compilation. |
-| **`cdd-swift`** | ✅ Supported | Executes cleanly via standard WASI. |
-| **`cdd-ts`** | ⚠️ Partial | Requires Node.js filesystem polyfills (`node:fs`) injected into the WASI shim. |
+| **C** (`cdd-c`) | ✅ **Supported** | Executes cleanly via standard WASI. |
+| **Go** (`cdd-go`) | ✅ **Supported** | Executes cleanly via standard WASI. |
+| **PHP** (`cdd-php`) | ✅ **Supported** | Executes cleanly via standard WASI (requires proper input file context). |
+| **Rust** (`cdd-rust`) | ✅ **Supported** | Executes cleanly via standard WASI. |
+| **Swift** (`cdd-swift`) | ✅ **Supported** | Executes cleanly via standard WASI. |
+| **C++** (`cdd-cpp`) | 🔴 **Unsupported** | Fails in `wasmtime` without `env` syscall imports (`__syscall_getdents64`). Triggers native fallback. |
+| **C#** (`cdd-csharp`) | 🔴 **Unsupported** | Fails in `wasmtime` without Mono JS bindings (`mono_wasm_bind_js_import_ST`). Triggers native fallback. |
+| **Kotlin** (`cdd-kotlin`) | 🔴 **Unsupported** | Fails in `wasmtime` (missing `legacy_exceptions` / GC polyfills). Triggers native fallback. |
+| **Ruby** (`cdd-ruby`) | 🔴 **Unsupported** | Fails in `wasmtime` without Ruby JS ABI host bindings. Triggers native fallback. |
+| **TypeScript** (`cdd-ts`) | 🔴 **Unsupported** | Fails in `wasmtime` (demands `node:fs` bindings). Triggers native fallback. |
+| **Java** (`cdd-java`) | 🔴 **Unsupported** | Fails due to heavy reliance on Reflection, `java.nio`, and Sockets. Requires JVM/Docker. |
+| **Python** (`cdd-python`) | 🔴 **Unavailable** | Upstream WASM builds are currently failing or missing release artifacts. |
+| **Shell** (`cdd-sh`) | 🔴 **N/A** | Shell scripts are interpreted natively and are not applicable for WebAssembly compilation. |
 
 ## Fallback Gracefulness
 

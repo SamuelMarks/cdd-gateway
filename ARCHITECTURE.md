@@ -60,9 +60,9 @@ Because the ecosystem consists of diverse technology stacks (Python, Java, Go, R
 
 
 ### 4. Binary Targets (`src/bin/`)
-The architecture compiles down into four distinct binaries to support various deployment strategies and interface preferences:
+The architecture compiles down into distinct binaries to support various deployment strategies and interface preferences:
 - **`cdd-ctl`**: The default manager. Provides a REST API gateway and spawns/supervises native `cdd-*` executables as background daemons.
-- **`cdd-ctl-wasm`**: The WASM variant of the REST API gateway. Instead of spawning native daemon processes, it uses `wasmtime` to securely evaluate `.wasm` builds of the `cdd-*` ecosystems within a robust, multi-tenant sandbox.
+- **`cdd-ctl-wasm`**: The WASM variant of the REST API gateway. Instead of spawning native daemon processes, it uses `wasmtime` to securely evaluate `.wasm` builds of the supported `cdd-*` ecosystems within a robust, multi-tenant sandbox. Unsupported targets (interpreted languages or heavy VMs) fallback to an HTTP 400 rejection.
 - **`cdd-rpc`**: Provides a JSON-RPC 2.0 over HTTP interface instead of REST, managing native `cdd-*` background daemons.
 - **`cdd-rpc-wasm`**: Provides a JSON-RPC 2.0 over HTTP interface, securely evaluating payloads via `wasmtime` against `.wasm` modules.
 
@@ -70,7 +70,7 @@ The architecture compiles down into four distinct binaries to support various de
 Instead of relying strictly on network downloads or stale releases, the 13 `cdd-*` language SDKs are bundled as git submodules within the `sdks/` directory. This guarantees that `cdd-ctl` can reliably build and pin all child processes or WASM targets strictly to their latest `master` commits within a unified monorepo-like environment.
 
 ### 6. Client-Side WASM SDK (`cdd-ctl-wasm-sdk/`)
-This is an isolated TypeScript/NPM package that wraps `@bjorn3/browser_wasi_shim`. It mounts virtual filesystem descriptors, parses WASM execution outputs (stdout, exit codes, etc.) and allows executing `.wasm` payloads directly within a user's web browser. Rather than sending OpenAPI specs via HTTP to `cdd-ctl`, developers can utilize this SDK to execute the `cdd-*` `.wasm` binaries entirely locally and offline inside their UI or Node.js environment.
+This is an isolated TypeScript/NPM package that wraps `@bjorn3/browser_wasi_shim`. It mounts virtual filesystem descriptors, parses WASM execution outputs, and allows executing 5 of the fully supported standalone `.wasm` payloads (C, Go, PHP, Rust, Swift) directly within a user's web browser, offline. Targets that rely on heavy JVM/CLR environments or NodeJS polyfills are unsupported in this purely client-side shim and must gracefully degrade to JSON-RPC HTTP calls back to a native `cdd-ctl` container environment.
 
 ## Configuration
 Configurations are handled elegantly via the `config` crate, resolving environment variable overrides (`CDD__SERVER_BIND`) or falling back to defaults in a `config.json` file.

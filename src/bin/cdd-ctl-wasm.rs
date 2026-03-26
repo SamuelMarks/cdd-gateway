@@ -9,7 +9,8 @@
 
 use actix_web::{web, App, HttpServer};
 use cdd_ctl::{api, db};
-use clap::Parser;
+use clap::{Parser, Subcommand};
+use std::process::Command;
 use log::{error, info};
 use std::sync::Arc;
 
@@ -22,7 +23,11 @@ use cdd_ctl::{ProcessConfig, ProcessManager};
 #[command(name = "cdd-ctl-wasm", author, version, about, long_about = None)]
 /// Command line arguments
 struct Args {
-    /// Path to configuration file (JSON/YAML/TOML)
+    #[command(subcommand)]
+    /// Optional subcommands
+    command: Option<Commands>,
+
+    /// Path to configuration file (JSON/YAML/TOML) (JSON/YAML/TOML)
     #[arg(short, long)]
     /// Path to configuration file (JSON/YAML/TOML)
     config: Option<String>,
@@ -33,12 +38,98 @@ struct Args {
     bind: Option<String>,
 }
 
+#[derive(Subcommand, Debug)]
+enum Commands {
+    /// Generate code to JSON format for documentation runner
+    #[command(name = "to_docs_json")]
+    ToDocsJson {
+        /// Target language
+        target_language: String,
+
+        /// Path to the OpenAPI specification file
+        #[arg(short, long)]
+        input: String,
+
+        /// Strip or omit package declarations, dependencies, and imports
+        #[arg(long)]
+        no_imports: bool,
+
+        /// Strip enclosing boilerplate classes, struct initializations, or wrapper functions
+        #[arg(long)]
+        no_wrapping: bool,
+    },
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenvy::dotenv().ok();
+    std::env::set_var("WASM_EXECUTION_MODE", "1");
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
+    
     let args = Args::parse();
+
+    if let Some(Commands::ToDocsJson {
+        target_language,
+        input,
+        no_imports,
+        no_wrapping,
+    }) = args.command
+    {
+        let target = if target_language.starts_with("cdd-") {
+            target_language.clone()
+        } else {
+            format!("cdd-{}", target_language)
+        };
+
+        if target == "cdd-java" || target == "cdd-python" || target == "cdd-sh" {
+            eprintln!("Error: The target '{}' is currently unsupported or unavailable for WebAssembly execution.", target);
+            std::process::exit(2);
+        }
+
+        let mut cmd = Command::new("wasmtime");
+
+        // WebAssembly GC for Kotlin
+        if target == "cdd-kotlin" {
+            cmd.arg("--wasm-features=gc");
+        }
+
+        let wasm_file = format!("cdd-ctl-wasm-sdk/assets/wasm/{}.wasm", target);
+
+        // Make input accessible to WASI
+        let input_path = std::path::Path::new(&input).canonicalize().unwrap_or_else(|_| std::path::PathBuf::from(&input));
+        let input_dir = input_path.parent().unwrap();
+        let filename = input_path.file_name().unwrap().to_string_lossy();
+        cmd.arg(format!("--dir={}::/workspace", input_dir.display()));
+        
+        cmd.arg(&wasm_file);
+        
+        // Pass arguments to WASM binary
+        cmd.arg("--");
+        cmd.arg("to_docs_json");
+        cmd.arg("-i").arg(format!("/workspace/{}", filename));
+        
+        if no_imports {
+            cmd.arg("--no-imports");
+        }
+        if no_wrapping {
+            cmd.arg("--no-wrapping");
+        }
+
+        let output = cmd.output().unwrap_or_else(|e| {
+            eprintln!("Failed to execute wasmtime: {}", e);
+            std::process::exit(1);
+        });
+
+        if !output.status.success() {
+            std::io::Write::write_all(&mut std::io::stderr(), &output.stderr).unwrap();
+            std::process::exit(output.status.code().unwrap_or(1));
+        }
+
+        std::io::Write::write_all(&mut std::io::stdout(), &output.stdout).unwrap();
+        return Ok(());
+    }
+
 
     let mut app_config = match AppConfig::load(args.config.as_deref()) {
         Ok(c) => c,
