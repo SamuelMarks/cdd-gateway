@@ -121,8 +121,8 @@ pub async fn rpc_handler(
             };
 
             let is_wasm = std::env::var("WASM_EXECUTION_MODE").unwrap_or_default() == "1";
-            if is_wasm {
-                if matches!(
+            if is_wasm
+                && matches!(
                     target.as_str(),
                     "cdd-java"
                         | "cdd-python"
@@ -132,13 +132,13 @@ pub async fn rpc_handler(
                         | "cdd-kotlin"
                         | "cdd-ruby"
                         | "cdd-ts"
-                ) {
-                    return HttpResponse::BadRequest().json(RpcResponse::error(
-                        400,
-                        format!("Error: The target '{}' is currently unsupported or unavailable for WebAssembly execution.", target),
-                        req.id.clone(),
-                    ));
-                }
+                )
+            {
+                return HttpResponse::BadRequest().json(RpcResponse::error(
+                    400,
+                    format!("Error: The target '{}' is currently unsupported or unavailable for WebAssembly execution.", target),
+                    req.id.clone(),
+                ));
             }
 
             let input = params

@@ -1,7 +1,7 @@
 use crate::db::establish_connection_pool;
 use crate::db::repository::{CddRepository, PgRepository};
 use std::env;
-use std::time::{SystemTime, UNIX_EPOCH};
+
 use uuid::Uuid;
 
 fn get_repo() -> PgRepository {
