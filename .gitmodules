@@ -19,8 +19,8 @@
 [submodule "sdks/cdd-php"]
 	path = sdks/cdd-php
 	url = https://github.com/SamuelMarks/cdd-php
-[submodule "sdks/cdd-python"]
-	path = sdks/cdd-python
+[submodule "sdks/cdd-python-all"]
+	path = sdks/cdd-python-all
 	url = https://github.com/offscale/cdd-python-all
 [submodule "sdks/cdd-ruby"]
 	path = sdks/cdd-ruby
@@ -37,3 +37,6 @@
 [submodule "sdks/cdd-ts"]
 	path = sdks/cdd-ts
 	url = https://github.com/offscale/cdd-ts
+[submodule "sdks/cdd-python"]
+	path = sdks/cdd-python
+	url = https://github.com/offscale/cdd-python

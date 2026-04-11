@@ -67,3 +67,5 @@ wasi-sdk.tar.gz
 wasi-vfs
 wasi-vfs.zip
 build_wasi/
+cdd-ctl-wasm-sdk/coverage
+coverage/

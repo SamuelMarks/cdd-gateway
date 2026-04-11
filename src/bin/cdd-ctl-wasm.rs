@@ -79,7 +79,7 @@ async fn main() -> std::io::Result<()> {
             format!("cdd-{}", target_language)
         };
 
-        if target == "cdd-java" || target == "cdd-python" || target == "cdd-sh" {
+        if target == "cdd-java" || target == "cdd-python" || target == "cdd-python-all" || target == "cdd-sh" {
             eprintln!("Error: The target '{}' is currently unsupported or unavailable for WebAssembly execution.", target);
             std::process::exit(2);
         }
@@ -151,7 +151,7 @@ async fn main() -> std::io::Result<()> {
             "cdd-java",
             "cdd-kotlin",
             "cdd-php",
-            "cdd-python",
+            "cdd-python", "cdd-python-all",
             "cdd-ruby",
             "cdd-rust",
             "cdd-swift",

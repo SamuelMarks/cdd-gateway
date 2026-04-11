@@ -1,27 +1,32 @@
 #![cfg(not(tarpaulin_include))]
 
+use crate::config::AppConfig;
 use actix_web::{dev::Payload, FromRequest, HttpRequest};
 use actix_web_httpauth::extractors::bearer::BearerAuth;
 use futures_util::future::{ready, Ready};
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
 
-/// Claims stored inside the JWT
+/// Claims stored inside a JWT issued by this service.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
-    /// Subject (User ID)
+    /// Subject — the numeric user ID.
     pub sub: i32,
-    /// Expiration time
+    /// Expiration time (Unix timestamp).
     pub exp: usize,
-    /// Username
+    /// The authenticated user's username.
     pub username: String,
 }
 
-/// Extractor for an authenticated user
+/// Actix-web extractor that validates a Bearer JWT and yields the caller's identity.
+///
+/// The JWT secret is read from [`AppConfig`] registered as Actix app data.  When
+/// no `AppConfig` is present (e.g. in unit tests that do not register it) the
+/// extractor falls back to the compile-time default `"super-secret-key"`.
 pub struct AuthenticatedUser {
-    /// The user's ID
+    /// The authenticated user's database ID.
     pub user_id: i32,
-    /// The user's username
+    /// The authenticated user's username.
     pub username: String,
 }
 
@@ -30,9 +35,12 @@ impl FromRequest for AuthenticatedUser {
     type Future = Ready<Result<Self, Self::Error>>;
 
     fn from_request(req: &HttpRequest, payload: &mut Payload) -> Self::Future {
-        // In a real application, you'd want to store the secret securely and maybe pass it in App state.
-        // For simplicity and to not block testing, we use a static secret here.
-        let secret = b"super-secret-key";
+        // Read the JWT secret from AppConfig stored in app data, falling back to
+        // the compile-time default so that tests without AppConfig still work.
+        let secret: Vec<u8> = req
+            .app_data::<actix_web::web::Data<AppConfig>>()
+            .map(|cfg| cfg.jwt_secret.as_bytes().to_vec())
+            .unwrap_or_else(|| b"super-secret-key".to_vec());
 
         let auth = BearerAuth::from_request(req, payload).into_inner();
 
@@ -41,7 +49,7 @@ impl FromRequest for AuthenticatedUser {
                 let token = bearer.token();
                 match decode::<Claims>(
                     token,
-                    &DecodingKey::from_secret(secret),
+                    &DecodingKey::from_secret(&secret),
                     &Validation::default(),
                 ) {
                     Ok(token_data) => ready(Ok(AuthenticatedUser {
@@ -57,7 +65,10 @@ impl FromRequest for AuthenticatedUser {
 }
 
 #[cfg(test)]
-/// Generate a test token for use in tests
+/// Generate a test JWT token signed with the default secret key.
+///
+/// Used by test helpers across the codebase to produce a valid Bearer token
+/// without needing a running server.
 pub fn generate_test_token() -> String {
     use jsonwebtoken::{encode, EncodingKey, Header};
     let claims = Claims {

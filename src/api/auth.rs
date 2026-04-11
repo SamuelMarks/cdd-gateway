@@ -1,5 +1,6 @@
 #![cfg(not(tarpaulin_include))]
 
+use crate::config::AppConfig;
 use crate::db::repository::CddRepository;
 use crate::github::client::GitHubClient;
 use actix_web::{web, HttpResponse, Responder};
@@ -46,7 +47,8 @@ pub struct RegisterPayload {
     pub password: Option<String>,
 }
 
-fn generate_token(user_id: i32, username: &str) -> String {
+/// Generate a signed JWT for the given user, using the secret from `AppConfig`.
+fn generate_token(user_id: i32, username: &str, jwt_secret: &[u8]) -> String {
     let claims = crate::api::auth_middleware::Claims {
         sub: user_id,
         exp: (chrono::Utc::now() + chrono::Duration::hours(24)).timestamp() as usize,
@@ -55,7 +57,7 @@ fn generate_token(user_id: i32, username: &str) -> String {
     encode(
         &Header::default(),
         &claims,
-        &EncodingKey::from_secret(b"super-secret-key"),
+        &EncodingKey::from_secret(jwt_secret),
     )
     .unwrap()
 }
@@ -92,6 +94,7 @@ fn verify_password(password: &str, hash: &str) -> bool {
 pub async fn register(
     payload: web::Json<RegisterPayload>,
     repo: web::Data<Arc<dyn CddRepository>>,
+    cfg: web::Data<AppConfig>,
 ) -> impl Responder {
     let hashed_pw = payload.password.as_ref().map(|pw| hash_password(pw));
 
@@ -105,7 +108,7 @@ pub async fn register(
         .await
     {
         Ok(user) => HttpResponse::Created().json(AuthResponse {
-            token: generate_token(user.id, &user.username),
+            token: generate_token(user.id, &user.username, cfg.jwt_secret.as_bytes()),
         }),
         Err(_) => HttpResponse::BadRequest().finish(),
     }
@@ -124,6 +127,7 @@ pub async fn register(
 pub async fn login_password(
     payload: web::Json<LoginPayload>,
     repo: web::Data<Arc<dyn CddRepository>>,
+    cfg: web::Data<AppConfig>,
 ) -> impl Responder {
     match repo.find_user_by_username(payload.username.clone()).await {
         Ok(Some(user)) => {
@@ -131,7 +135,7 @@ pub async fn login_password(
                 if let Some(h) = &user.password_hash {
                     if verify_password(pw, h) {
                         return HttpResponse::Ok().json(AuthResponse {
-                            token: generate_token(user.id, &user.username),
+                            token: generate_token(user.id, &user.username, cfg.jwt_secret.as_bytes()),
                         });
                     }
                 }
@@ -157,6 +161,7 @@ pub async fn login_github(
     payload: web::Json<OAuthPayload>,
     repo: web::Data<Arc<dyn CddRepository>>,
     github: web::Data<Arc<dyn GitHubClient>>,
+    cfg: web::Data<AppConfig>,
 ) -> impl Responder {
     if payload.code.is_empty() {
         return HttpResponse::BadRequest().finish();
@@ -192,7 +197,7 @@ pub async fn login_github(
         .await
     {
         Ok(user) => HttpResponse::Ok().json(AuthResponse {
-            token: generate_token(user.id, &user.username),
+            token: generate_token(user.id, &user.username, cfg.jwt_secret.as_bytes()),
         }),
         Err(_) => HttpResponse::InternalServerError().finish(),
     }
@@ -214,8 +219,11 @@ mod tests {
     use crate::db::models::User;
     use crate::db::repository::MockCddRepository;
     use crate::github::client::MockGitHubClient;
-    use crate::github::models::{GitHubEmail, GitHubUser};
     use actix_web::{test, App};
+
+    fn test_config() -> AppConfig {
+        AppConfig::load(None).unwrap()
+    }
 
     #[actix_web::test]
     async fn test_register() {
@@ -236,6 +244,7 @@ mod tests {
             App::new()
                 .app_data(web::Data::new(Arc::new(mock_repo) as Arc<dyn CddRepository>))
                 .app_data(web::Data::new(Arc::new(mock_gh) as Arc<dyn GitHubClient>))
+                .app_data(web::Data::new(test_config()))
                 .configure(configure),
         )
         .await;
@@ -265,6 +274,7 @@ mod tests {
             App::new()
                 .app_data(web::Data::new(Arc::new(mock_repo) as Arc<dyn CddRepository>))
                 .app_data(web::Data::new(Arc::new(mock_gh) as Arc<dyn GitHubClient>))
+                .app_data(web::Data::new(test_config()))
                 .configure(configure),
         )
         .await;
@@ -298,14 +308,14 @@ mod tests {
             .expect_exchange_code()
             .returning(|_| Ok("fake_token".to_string()));
         mock_gh.expect_get_user().returning(|_| {
-            Ok(GitHubUser {
+            Ok(crate::github::models::GitHubUser {
                 id: 123,
                 login: "gh_user".to_string(),
                 avatar_url: "".to_string(),
             })
         });
         mock_gh.expect_get_emails().returning(|_| {
-            Ok(vec![GitHubEmail {
+            Ok(vec![crate::github::models::GitHubEmail {
                 email: "gh@example.com".to_string(),
                 primary: true,
                 verified: true,
@@ -316,6 +326,7 @@ mod tests {
             App::new()
                 .app_data(web::Data::new(Arc::new(mock_repo) as Arc<dyn CddRepository>))
                 .app_data(web::Data::new(Arc::new(mock_gh) as Arc<dyn GitHubClient>))
+                .app_data(web::Data::new(test_config()))
                 .configure(configure),
         )
         .await;
@@ -342,6 +353,7 @@ mod tests {
             App::new()
                 .app_data(web::Data::new(Arc::new(mock_repo) as Arc<dyn CddRepository>))
                 .app_data(web::Data::new(Arc::new(mock_gh) as Arc<dyn GitHubClient>))
+                .app_data(web::Data::new(test_config()))
                 .configure(configure),
         )
         .await;
@@ -376,6 +388,7 @@ mod tests {
             App::new()
                 .app_data(web::Data::new(Arc::new(mock_repo) as Arc<dyn CddRepository>))
                 .app_data(web::Data::new(Arc::new(mock_gh) as Arc<dyn GitHubClient>))
+                .app_data(web::Data::new(test_config()))
                 .configure(configure),
         )
         .await;
@@ -409,6 +422,7 @@ mod tests {
             App::new()
                 .app_data(web::Data::new(Arc::new(mock_repo) as Arc<dyn CddRepository>))
                 .app_data(web::Data::new(Arc::new(mock_gh) as Arc<dyn GitHubClient>))
+                .app_data(web::Data::new(test_config()))
                 .configure(configure),
         )
         .await;
@@ -442,6 +456,7 @@ mod tests {
             App::new()
                 .app_data(web::Data::new(Arc::new(mock_repo) as Arc<dyn CddRepository>))
                 .app_data(web::Data::new(Arc::new(mock_gh) as Arc<dyn GitHubClient>))
+                .app_data(web::Data::new(test_config()))
                 .configure(configure),
         )
         .await;
@@ -465,6 +480,7 @@ mod tests {
             App::new()
                 .app_data(web::Data::new(Arc::new(mock_repo) as Arc<dyn CddRepository>))
                 .app_data(web::Data::new(Arc::new(mock_gh) as Arc<dyn GitHubClient>))
+                .app_data(web::Data::new(test_config()))
                 .configure(configure),
         )
         .await;
@@ -490,6 +506,7 @@ mod tests {
             App::new()
                 .app_data(web::Data::new(Arc::new(mock_repo) as Arc<dyn CddRepository>))
                 .app_data(web::Data::new(Arc::new(mock_gh) as Arc<dyn GitHubClient>))
+                .app_data(web::Data::new(test_config()))
                 .configure(configure),
         )
         .await;
@@ -516,6 +533,7 @@ mod tests {
             App::new()
                 .app_data(web::Data::new(Arc::new(mock_repo) as Arc<dyn CddRepository>))
                 .app_data(web::Data::new(Arc::new(mock_gh) as Arc<dyn GitHubClient>))
+                .app_data(web::Data::new(test_config()))
                 .configure(configure),
         )
         .await;
@@ -536,7 +554,7 @@ mod tests {
             .expect_exchange_code()
             .returning(|_| Ok("token".into()));
         mock_gh.expect_get_user().returning(|_| {
-            Ok(GitHubUser {
+            Ok(crate::github::models::GitHubUser {
                 id: 1,
                 login: "l".into(),
                 avatar_url: "u".into(),
@@ -549,6 +567,7 @@ mod tests {
             App::new()
                 .app_data(web::Data::new(Arc::new(mock_repo) as Arc<dyn CddRepository>))
                 .app_data(web::Data::new(Arc::new(mock_gh) as Arc<dyn GitHubClient>))
+                .app_data(web::Data::new(test_config()))
                 .configure(configure),
         )
         .await;
@@ -572,7 +591,7 @@ mod tests {
             .expect_exchange_code()
             .returning(|_| Ok("token".into()));
         mock_gh.expect_get_user().returning(|_| {
-            Ok(GitHubUser {
+            Ok(crate::github::models::GitHubUser {
                 id: 1,
                 login: "l".into(),
                 avatar_url: "u".into(),
@@ -583,6 +602,7 @@ mod tests {
             App::new()
                 .app_data(web::Data::new(Arc::new(mock_repo) as Arc<dyn CddRepository>))
                 .app_data(web::Data::new(Arc::new(mock_gh) as Arc<dyn GitHubClient>))
+                .app_data(web::Data::new(test_config()))
                 .configure(configure),
         )
         .await;
@@ -594,13 +614,6 @@ mod tests {
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 500);
     }
-}
-#[cfg(test)]
-mod additional_tests {
-    use super::*;
-    use crate::db::repository::MockCddRepository;
-    use crate::github::client::MockGitHubClient;
-    use actix_web::{test, App};
 
     #[actix_web::test]
     async fn test_login_password_no_hash() {
@@ -624,6 +637,7 @@ mod additional_tests {
                 .app_data(web::Data::new(
                     std::sync::Arc::new(mock_gh) as std::sync::Arc<dyn GitHubClient>
                 ))
+                .app_data(web::Data::new(test_config()))
                 .configure(configure),
         )
         .await;

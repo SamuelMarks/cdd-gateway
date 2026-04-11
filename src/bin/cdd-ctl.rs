@@ -125,7 +125,7 @@ async fn main() -> std::io::Result<()> {
             "cdd-java",
             "cdd-kotlin",
             "cdd-php",
-            "cdd-python",
+            "cdd-python", "cdd-python-all",
             "cdd-ruby",
             "cdd-rust",
             "cdd-sh",

@@ -138,10 +138,20 @@ sdks.forEach((sdk) => {
                 fs.copyFileSync(wasmSource, wasmDest);
                 success = true;
             }
-        } else if (fs.existsSync(pyProjectPath) || sdk === "cdd-sh") {
+        } else if (fs.existsSync(pyProjectPath) || fs.existsSync(path.join(sdkPath, "setup.py"))) {
             console.log(
-                `[${sdk}] Python project detected. Running make build_wasm...`,
+                `[${sdk}] Python project detected. Zipping source code for Pyodide fallback...`,
             );
+            const sourceFiles = fs.existsSync(pyProjectPath) ? "src pyproject.toml" : "cdd setup.py";
+            execSync(`zip -r ${wasmDest} ${sourceFiles}`, {
+                cwd: sdkPath,
+                stdio: "inherit",
+            });
+            if (fs.existsSync(wasmDest)) {
+                success = true;
+            }
+        } else if (sdk === "cdd-sh") {
+            console.log(`[${sdk}] Shell project detected. Running make build_wasm...`);
             execSync("make build_wasm", { cwd: sdkPath, stdio: "inherit" });
             const wasmSource = path.join(sdkPath, "bin", `${sdk}.wasm`);
             if (fs.existsSync(wasmSource)) {
