@@ -33,16 +33,16 @@ Extensive testing via `wasmtime` has yielded the following support constraints a
 | **Rust** (`cdd-rust`) | ✅ **Supported** | Executes cleanly via standard WASI. |
 | **Swift** (`cdd-swift`) | ✅ **Supported** | Executes cleanly via standard WASI. |
 | **C++** (`cdd-cpp`) | ✅ **Supported** | Executes cleanly via standard WASI. |
-| **C#** (`cdd-csharp`) | 🔴 **Unsupported** | Fails in `wasmtime` without Mono JS bindings (`mono_wasm_bind_js_import_ST`). Triggers native fallback. |
-| **Kotlin** (`cdd-kotlin`) | 🔴 **Unsupported** | Fails in `wasmtime` (missing `legacy_exceptions` / GC polyfills). Triggers native fallback. |
+| **C#** (`cdd-csharp`) | ✅ **Supported** | Executes cleanly via pure WASI (compiled via `Wasi.Sdk`). |
+| **Kotlin** (`cdd-kotlin`) | ✅ **Supported** | Executes cleanly via Kotlin Multiplatform WASM target. |
 | **Ruby** (`cdd-ruby`) | ✅ **Supported** | Executes cleanly via standard WASI (compiled using `rbwasm` and `ruby.wasm`). |
 | **TypeScript** (`cdd-ts`) | ✅ **Supported** | Executes cleanly via standard WASI (Node.js dependencies polyfilled). |
-| **Java** (`cdd-java`) | 🔴 **Unsupported** | Fails due to heavy reliance on Reflection, `java.nio`, and Sockets. Requires JVM/Docker. |
+| **Java** (`cdd-java`) | ✅ **Supported** | Executes cleanly via pure WASI (compiled via GraalVM `native-image`). |
 | **Python** (`cdd-python`) | ✅ **Supported** | Executes via standard WASI (compiled using `py2wasm`). |
 | **Shell** (`cdd-sh`) | 🔴 **N/A** | Shell scripts are interpreted natively and are not applicable for WebAssembly compilation. |
 
 ## Fallback Gracefulness
 
-If a specific `cdd-*` tool lacks WASM support (e.g., `cdd-java` or `cdd-sh`), the architecture degrades gracefully:
+If a specific `cdd-*` tool lacks WASM support (e.g., `cdd-sh`), the architecture degrades gracefully:
 - **Frontend**: The Web UI dynamically reads the `wasm-support.json` matrix at launch. Unsupported languages are explicitly flagged and greyed out to prevent execution errors.
 - **Backend (`cdd-ctl-wasm`)**: If requested via the API, the backend will identify the missing WASM capability and gracefully fall back to the native binary equivalent (if configured) or return a descriptive `400 Bad Request` indicating that the target ecosystem requires a native runtime.

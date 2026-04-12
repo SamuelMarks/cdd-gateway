@@ -20,7 +20,7 @@ cargo run --bin cdd-rpc --release -- --bind 127.0.0.1:8082 --config ./servers.js
 
 ## 2. Via CLI with WASM
 
-If you prefer to avoid installing native dependencies for all 13 supported languages (Python, Go, Java, etc.), you can run the WASM variant from the CLI. This mode utilizes `wasmtime` to execute pre-compiled WebAssembly binaries of the `cdd-*` toolchain safely sandboxed on your machine.
+If you prefer to avoid installing native dependencies for all 13 supported languages (Python, Go, etc.), you can run the WASM variant from the CLI. This mode utilizes `wasmtime` to execute pre-compiled WebAssembly binaries of the `cdd-*` toolchain safely sandboxed on your machine.
 
 ```bash
 # Ensure wasmtime is installed

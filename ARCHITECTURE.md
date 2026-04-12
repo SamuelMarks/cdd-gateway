@@ -80,7 +80,7 @@ Instead of relying strictly on network downloads or stale releases, the 13 `cdd-
 
 ### 6. Client-Side WASM SDK (`cdd-ctl-wasm-sdk/`)
 
-This is an isolated TypeScript/NPM package that wraps `@bjorn3/browser_wasi_shim`. It mounts virtual filesystem descriptors, parses WASM execution outputs, and allows executing 5 of the fully supported standalone `.wasm` payloads (C, Go, PHP, Rust, Swift) directly within a user's web browser, offline. Targets that rely on heavy JVM/CLR environments or NodeJS polyfills are unsupported in this purely client-side shim and must gracefully degrade to JSON-RPC HTTP calls back to a native `cdd-ctl` container environment.
+This is an isolated TypeScript/NPM package that wraps `@bjorn3/browser_wasi_shim`. It mounts virtual filesystem descriptors, parses WASM execution outputs, and allows executing the 12 fully supported standalone `.wasm` payloads (C, C++, C#, Go, Java, Kotlin, PHP, Python, Ruby, Rust, Swift, TypeScript) directly within a user's web browser, offline. Targets that cannot compile to WASM (like native shell scripts) are unsupported in this purely client-side shim and must gracefully degrade to JSON-RPC HTTP calls back to a native `cdd-ctl` container environment.
 
 ## Configuration
 
