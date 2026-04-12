@@ -164,8 +164,12 @@ sdks.forEach((sdk) => {
             );
             execSync("make build_wasm", { cwd: sdkPath, stdio: "inherit" });
             const wasmSource = path.join(sdkPath, "bin", `${sdk}.wasm`);
+            const wasmSourceDist = path.join(sdkPath, "dist", `${sdk}.wasm`);
             if (fs.existsSync(wasmSource)) {
                 fs.copyFileSync(wasmSource, wasmDest);
+                success = true;
+            } else if (fs.existsSync(wasmSourceDist)) {
+                fs.copyFileSync(wasmSourceDist, wasmDest);
                 success = true;
             }
         } else if (

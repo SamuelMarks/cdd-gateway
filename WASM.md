@@ -35,7 +35,7 @@ Extensive testing via `wasmtime` has yielded the following support constraints a
 | **C++** (`cdd-cpp`) | ✅ **Supported** | Executes cleanly via standard WASI. |
 | **C#** (`cdd-csharp`) | 🔴 **Unsupported** | Fails in `wasmtime` without Mono JS bindings (`mono_wasm_bind_js_import_ST`). Triggers native fallback. |
 | **Kotlin** (`cdd-kotlin`) | 🔴 **Unsupported** | Fails in `wasmtime` (missing `legacy_exceptions` / GC polyfills). Triggers native fallback. |
-| **Ruby** (`cdd-ruby`) | 🔴 **Unsupported** | Fails in `wasmtime` without Ruby JS ABI host bindings. Triggers native fallback. |
+| **Ruby** (`cdd-ruby`) | ✅ **Supported** | Executes cleanly via standard WASI (compiled using `rbwasm` and `ruby.wasm`). |
 | **TypeScript** (`cdd-ts`) | ✅ **Supported** | Executes cleanly via standard WASI (Node.js dependencies polyfilled). |
 | **Java** (`cdd-java`) | 🔴 **Unsupported** | Fails due to heavy reliance on Reflection, `java.nio`, and Sockets. Requires JVM/Docker. |
 | **Python** (`cdd-python`) | ✅ **Supported** | Executes via standard WASI (compiled using `py2wasm`). |
