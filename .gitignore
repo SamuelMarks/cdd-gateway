@@ -69,3 +69,5 @@ wasi-vfs.zip
 build_wasi/
 cdd-ctl-wasm-sdk/coverage
 coverage/
+fix-shim.js
+teavm-cli-*.jar
