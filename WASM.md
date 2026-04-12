@@ -32,13 +32,13 @@ Extensive testing via `wasmtime` has yielded the following support constraints a
 | **PHP** (`cdd-php`) | ✅ **Supported** | Executes cleanly via standard WASI (requires proper input file context). |
 | **Rust** (`cdd-rust`) | ✅ **Supported** | Executes cleanly via standard WASI. |
 | **Swift** (`cdd-swift`) | ✅ **Supported** | Executes cleanly via standard WASI. |
-| **C++** (`cdd-cpp`) | 🔴 **Unsupported** | Fails in `wasmtime` without `env` syscall imports (`__syscall_getdents64`). Triggers native fallback. |
+| **C++** (`cdd-cpp`) | ✅ **Supported** | Executes cleanly via standard WASI. |
 | **C#** (`cdd-csharp`) | 🔴 **Unsupported** | Fails in `wasmtime` without Mono JS bindings (`mono_wasm_bind_js_import_ST`). Triggers native fallback. |
 | **Kotlin** (`cdd-kotlin`) | 🔴 **Unsupported** | Fails in `wasmtime` (missing `legacy_exceptions` / GC polyfills). Triggers native fallback. |
 | **Ruby** (`cdd-ruby`) | 🔴 **Unsupported** | Fails in `wasmtime` without Ruby JS ABI host bindings. Triggers native fallback. |
-| **TypeScript** (`cdd-ts`) | 🔴 **Unsupported** | Fails in `wasmtime` (demands `node:fs` bindings). Triggers native fallback. |
+| **TypeScript** (`cdd-ts`) | ✅ **Supported** | Executes cleanly via standard WASI (Node.js dependencies polyfilled). |
 | **Java** (`cdd-java`) | 🔴 **Unsupported** | Fails due to heavy reliance on Reflection, `java.nio`, and Sockets. Requires JVM/Docker. |
-| **Python** (`cdd-python`) | 🔴 **Unavailable** | Upstream WASM builds are currently failing or missing release artifacts. |
+| **Python** (`cdd-python`) | ✅ **Supported** | Executes via standard WASI (compiled using `py2wasm`). |
 | **Shell** (`cdd-sh`) | 🔴 **N/A** | Shell scripts are interpreted natively and are not applicable for WebAssembly compilation. |
 
 ## Fallback Gracefulness
