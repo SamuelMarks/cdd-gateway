@@ -78,7 +78,8 @@ sdks.forEach((sdk) => {
     const gradlePath = path.join(sdkPath, "build.gradle.kts");
     const isJavaRaw = fs.existsSync(path.join(sdkPath, "src", "main", "java"));
     const mavenPath = path.join(sdkPath, "pom.xml");
-    const buildWasmScript = path.join(sdkPath, "scripts", "build-wasm.sh");
+    const buildWasmScriptLegacy = path.join(sdkPath, "scripts", "build-wasm.sh");
+    const buildWasmScriptRoot = path.join(sdkPath, "build_wasm.sh");
 
     let success = false;
     const wasmDest = path.join(DEST_DIR, sdk + ".wasm");
@@ -86,9 +87,20 @@ sdks.forEach((sdk) => {
     console.log(`\nAnalyzing ${sdk}...`);
 
     try {
-        if (fs.existsSync(buildWasmScript)) {
-            console.log(`[${sdk}] Found custom build script. Executing...`);
-            execSync(`bash ${buildWasmScript}`, {
+        if (fs.existsSync(buildWasmScriptRoot)) {
+            console.log(`[${sdk}] Found custom build script at root. Executing...`);
+            execSync(`bash ${buildWasmScriptRoot}`, {
+                cwd: sdkPath,
+                stdio: "inherit",
+            });
+            const customWasmSource = path.join(sdkPath, "target", "wasm", `${sdk}.wasm`);
+            if (fs.existsSync(customWasmSource)) {
+                fs.copyFileSync(customWasmSource, wasmDest);
+                success = true;
+            }
+        } else if (fs.existsSync(buildWasmScriptLegacy)) {
+            console.log(`[${sdk}] Found custom build script in scripts/. Executing...`);
+            execSync(`bash ${buildWasmScriptLegacy}`, {
                 cwd: sdkPath,
                 stdio: "inherit",
             });
@@ -113,6 +125,14 @@ sdks.forEach((sdk) => {
                 sdkPath,
                 "target/wasm32-wasip1/release/" + sdk + ".wasm",
             );
+            if (fs.existsSync(wasmSource)) {
+                fs.copyFileSync(wasmSource, wasmDest);
+                success = true;
+            }
+        } else if (sdk === "cdd-sh") {
+            console.log(`[${sdk}] Shell project detected. Running make build_wasm...`);
+            execSync("make build_wasm", { cwd: sdkPath, stdio: "inherit" });
+            const wasmSource = path.join(sdkPath, "wasm_build", `${sdk}.wasm`);
             if (fs.existsSync(wasmSource)) {
                 fs.copyFileSync(wasmSource, wasmDest);
                 success = true;
@@ -148,14 +168,6 @@ sdks.forEach((sdk) => {
                 stdio: "inherit",
             });
             if (fs.existsSync(wasmDest)) {
-                success = true;
-            }
-        } else if (sdk === "cdd-sh") {
-            console.log(`[${sdk}] Shell project detected. Running make build_wasm...`);
-            execSync("make build_wasm", { cwd: sdkPath, stdio: "inherit" });
-            const wasmSource = path.join(sdkPath, "bin", `${sdk}.wasm`);
-            if (fs.existsSync(wasmSource)) {
-                fs.copyFileSync(wasmSource, wasmDest);
                 success = true;
             }
         } else if (fs.existsSync(makefilePath) || fs.existsSync(cmakePath)) {
@@ -201,11 +213,10 @@ sdks.forEach((sdk) => {
     if (!success) {
         console.log(`[${sdk}] Falling back to dummy WASM binary.`);
         fs.writeFileSync(wasmDest, DUMMY_WASM);
-        success = true;
+        success = false;
     }
 
     let lang = sdk.replace("cdd-", "");
-    if (lang === "python-all") lang = "python";
     supportMap[lang] = success;
 });
 

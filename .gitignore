@@ -71,3 +71,6 @@ cdd-ctl-wasm-sdk/coverage
 coverage/
 fix-shim.js
 teavm-cli-*.jar
+
+# Claude
+.claude/
