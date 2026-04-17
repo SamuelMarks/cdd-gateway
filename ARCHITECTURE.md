@@ -1,5 +1,8 @@
 # cdd-ctl Architecture
 
+> This document details the internal technical architecture, database models, daemon manager, and WebAssembly execution engine of the `cdd-ctl` ecosystem.
+
+
 `cdd-ctl` serves as the central orchestration layer and API gateway for the multi-language `cdd-*` toolchain. Rewritten natively in Rust, it provides a highly concurrent, reliable foundation for managing the execution, synchronization, and authentication of 13+ distinct language SDKs and components.
 
 It operates primarily across three distinct layers:
@@ -73,6 +76,7 @@ The architecture compiles down into distinct binaries to support various deploym
 - **`cdd-ctl-wasm`**: The WASM variant of the REST API gateway. Instead of spawning native daemon processes, it uses `wasmtime` to securely evaluate `.wasm` builds of the supported `cdd-*` ecosystems within a robust, multi-tenant sandbox. Unsupported targets (interpreted languages or heavy VMs) fallback to an HTTP 400 rejection.
 - **`cdd-rpc`**: Provides a JSON-RPC 2.0 over HTTP interface instead of REST, managing native `cdd-*` background daemons.
 - **`cdd-rpc-wasm`**: Provides a JSON-RPC 2.0 over HTTP interface, securely evaluating payloads via `wasmtime` against `.wasm` modules.
+- **`dump_openapi`**: A utility binary that automatically generates and exports the `openapi.json` schema from the `utoipa` definitions.
 
 ### 5. Git Submodules (`sdks/`)
 

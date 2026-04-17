@@ -1,5 +1,8 @@
 # Developing `cdd-ctl`
 
+> This document serves as the contributor guide, detailing how to set up the local development environment, build from source, and run tests for `cdd-ctl`.
+
+
 Thank you for your interest in contributing to the `cdd-*` ecosystem's central controller and API Gateway!
 
 This project is written natively in **Rust** and adheres strictly to a 100% test coverage and 100% documentation coverage constraint.

@@ -1,5 +1,8 @@
 # WebAssembly (WASM) Integration
 
+> This document provides an overview of the WebAssembly (WASM) integration, backend sandboxing, and frontend client capabilities for the `cdd-*` ecosystem.
+
+
 A core strength of the `cdd-*` ecosystem is its ability to compile language-specific generators into WebAssembly (WASM) and WebAssembly System Interface (WASI) modules. This allows instantaneous, zero-latency code generation across any platform, including directly within a user's web browser, without requiring a network connection or native toolchains.
 
 ## Execution Environments

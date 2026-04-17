@@ -1,5 +1,8 @@
 # Deployment Guide (`cdd-ctl`)
 
+> This document provides comprehensive guides and examples for deploying `cdd-ctl` as a background service across various operating systems and platforms.
+
+
 This guide provides examples for deploying `cdd-ctl` as a background service across various operating systems and environments. Since `cdd-ctl` acts as a daemon manager for 13 external `cdd-*` JSON-RPC servers, running it reliably is critical.
 
 The application is built to handle its own internal process lifecycle (retries, logging, graceful shutdown), but the host OS must ensure `cdd-ctl` itself stays alive.

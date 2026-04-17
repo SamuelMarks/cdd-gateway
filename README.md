@@ -1,5 +1,8 @@
 # cdd-ctl
 
+> This document is the main entry point for the project, providing a high-level overview, feature summary, and links to further documentation.
+
+
 [![CI](https://github.com/SamuelMarks/cdd-ctl/actions/workflows/ci.yml/badge.svg)](https://github.com/SamuelMarks/cdd-ctl/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0%20OR%20MIT-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Test Coverage](https://img.shields.io/badge/coverage-100%25-success.svg)](https://github.com/SamuelMarks/cdd-ctl/actions)
@@ -13,7 +16,7 @@ Central daemon manager, API Gateway, and SDK management backend for the `cdd-*` 
 
 - **Daemon Manager:** Built-in supervisor managing the lifecycle, standard-streams (logging), and auto-restart backoff of up to 13 distinct `cdd-*` JSON-RPC language servers.
 - **REST API Gateway:** High-performance RESTful API built on `actix-web`.
-- **Database & ORM:** Fully implemented PostgreSQL data models for Organizations, Repositories, and Releases using `diesel`.
+- **Database & ORM:** Fully implemented PostgreSQL data models for Organizations, Users, Repositories, and Releases using `diesel`.
 - **GitHub Integrations:** Integrated GitHub OAuth, webhooks, and automated secrets management (via Libsodium-sealed Action Secrets).
 - **Authentication & Security:** Secure JWT-based `Bearer` auth, featuring an OAuth2 password grant flow with **Argon2** password hashing.
 - **Role-Based Access Control (RBAC):** Organization ownership models, ensuring secure management of underlying SDKs and sync processes.

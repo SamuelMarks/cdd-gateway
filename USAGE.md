@@ -1,5 +1,8 @@
 # Usage Guide for `cdd-ctl`
 
+> This document is the end-user guide detailing how to run, configure, and embed `cdd-ctl` via native CLI, WASM, background server, or as a Rust crate.
+
+
 The `cdd-ctl` ecosystem provides extremely flexible deployment models. Depending on your environment, you can use it as a native CLI tool, a WASM-backed CLI, a centralized background server, an embedded browser library, or a Rust SDK.
 
 ## 1. Via CLI (Native)
@@ -154,3 +157,12 @@ async fn main() {
     manager.stop_all().await;
 }
 ```
+## 7. Dumping the OpenAPI Specification
+
+You can dynamically generate and dump the complete `openapi.json` specification from the source code via the `dump_openapi` utility binary.
+
+```bash
+cargo run --bin dump_openapi
+```
+
+This will output the `openapi.json` file to your current working directory.
