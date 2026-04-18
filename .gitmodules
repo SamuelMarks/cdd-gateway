@@ -37,6 +37,3 @@
 [submodule "sdks/cdd-ts"]
 	path = sdks/cdd-ts
 	url = https://github.com/offscale/cdd-ts
-[submodule "sdks/cdd-python"]
-	path = sdks/cdd-python
-	url = https://github.com/offscale/cdd-python
