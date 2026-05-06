@@ -125,7 +125,8 @@ pub async fn rpc_handler(
                 && matches!(
                     target.as_str(),
                     "cdd-java"
-                        | "cdd-python" | "cdd-python-all"
+                        | "cdd-python"
+                        | "cdd-python-all"
                         | "cdd-sh"
                         | "cdd-cpp"
                         | "cdd-csharp"
@@ -373,7 +374,10 @@ pub async fn rpc_handler(
                 .and_then(|p| p.get("description"))
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string());
-            match repo.create_repository(org_id, None, name, description).await {
+            match repo
+                .create_repository(org_id, None, name, description)
+                .await
+            {
                 Ok(r) => HttpResponse::Ok().json(RpcResponse::success(
                     serde_json::to_value(r).unwrap(),
                     req.id.clone(),
@@ -547,27 +551,31 @@ mod tests {
     #[actix_web::test]
     async fn test_get_organization_happy_path() {
         let mut repo = MockCddRepository::new();
-        repo.expect_get_organization()
-            .returning(|_| Ok(Some(crate::db::models::Organization {
+        repo.expect_get_organization().returning(|_| {
+            Ok(Some(crate::db::models::Organization {
                 id: 1,
                 github_id: None,
                 login: "test-org".to_string(),
                 description: None,
-            })));
+            }))
+        });
         let gh = MockGitHubClient::new();
         let app = test::init_service(
             App::new()
                 .app_data(web::Data::new(Arc::new(repo) as Arc<dyn CddRepository>))
                 .app_data(web::Data::new(Arc::new(gh) as Arc<dyn GitHubClient>))
                 .configure(configure),
-        ).await;
-        let req = test::TestRequest::post().uri("/rpc")
+        )
+        .await;
+        let req = test::TestRequest::post()
+            .uri("/rpc")
             .set_json(RpcRequest {
                 jsonrpc: "2.0".to_string(),
                 method: "get_organization".to_string(),
                 params: Some(serde_json::json!({ "org_id": 1 })),
                 id: Some(serde_json::json!(10)),
-            }).to_request();
+            })
+            .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
         assert!(resp.result.is_some());
         assert!(resp.error.is_none());
@@ -582,14 +590,17 @@ mod tests {
                 .app_data(web::Data::new(Arc::new(repo) as Arc<dyn CddRepository>))
                 .app_data(web::Data::new(Arc::new(gh) as Arc<dyn GitHubClient>))
                 .configure(configure),
-        ).await;
-        let req = test::TestRequest::post().uri("/rpc")
+        )
+        .await;
+        let req = test::TestRequest::post()
+            .uri("/rpc")
             .set_json(RpcRequest {
                 jsonrpc: "2.0".to_string(),
                 method: "get_organization".to_string(),
                 params: Some(serde_json::json!({})),
                 id: Some(serde_json::json!(11)),
-            }).to_request();
+            })
+            .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
         assert_eq!(resp.error.unwrap().code, -32602);
     }
@@ -604,14 +615,17 @@ mod tests {
                 .app_data(web::Data::new(Arc::new(repo) as Arc<dyn CddRepository>))
                 .app_data(web::Data::new(Arc::new(gh) as Arc<dyn GitHubClient>))
                 .configure(configure),
-        ).await;
-        let req = test::TestRequest::post().uri("/rpc")
+        )
+        .await;
+        let req = test::TestRequest::post()
+            .uri("/rpc")
             .set_json(RpcRequest {
                 jsonrpc: "2.0".to_string(),
                 method: "get_organization".to_string(),
                 params: Some(serde_json::json!({ "org_id": 999 })),
                 id: Some(serde_json::json!(12)),
-            }).to_request();
+            })
+            .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
         assert_eq!(resp.error.unwrap().code, 404);
     }
@@ -627,14 +641,17 @@ mod tests {
                 .app_data(web::Data::new(Arc::new(repo) as Arc<dyn CddRepository>))
                 .app_data(web::Data::new(Arc::new(gh) as Arc<dyn GitHubClient>))
                 .configure(configure),
-        ).await;
-        let req = test::TestRequest::post().uri("/rpc")
+        )
+        .await;
+        let req = test::TestRequest::post()
+            .uri("/rpc")
             .set_json(RpcRequest {
                 jsonrpc: "2.0".to_string(),
                 method: "get_organization".to_string(),
                 params: Some(serde_json::json!({ "org_id": 1 })),
                 id: Some(serde_json::json!(13)),
-            }).to_request();
+            })
+            .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
         assert_eq!(resp.error.unwrap().code, 500);
     }
@@ -642,28 +659,32 @@ mod tests {
     #[actix_web::test]
     async fn test_get_repository_happy_path() {
         let mut repo = MockCddRepository::new();
-        repo.expect_get_repository()
-            .returning(|_| Ok(Some(crate::db::models::Repository {
+        repo.expect_get_repository().returning(|_| {
+            Ok(Some(crate::db::models::Repository {
                 id: 1,
                 organization_id: 1,
                 github_id: None,
                 name: "test-repo".to_string(),
                 description: None,
-            })));
+            }))
+        });
         let gh = MockGitHubClient::new();
         let app = test::init_service(
             App::new()
                 .app_data(web::Data::new(Arc::new(repo) as Arc<dyn CddRepository>))
                 .app_data(web::Data::new(Arc::new(gh) as Arc<dyn GitHubClient>))
                 .configure(configure),
-        ).await;
-        let req = test::TestRequest::post().uri("/rpc")
+        )
+        .await;
+        let req = test::TestRequest::post()
+            .uri("/rpc")
             .set_json(RpcRequest {
                 jsonrpc: "2.0".to_string(),
                 method: "get_repository".to_string(),
                 params: Some(serde_json::json!({ "repo_id": 1 })),
                 id: Some(serde_json::json!(20)),
-            }).to_request();
+            })
+            .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
         assert!(resp.result.is_some());
         assert!(resp.error.is_none());
@@ -678,14 +699,17 @@ mod tests {
                 .app_data(web::Data::new(Arc::new(repo) as Arc<dyn CddRepository>))
                 .app_data(web::Data::new(Arc::new(gh) as Arc<dyn GitHubClient>))
                 .configure(configure),
-        ).await;
-        let req = test::TestRequest::post().uri("/rpc")
+        )
+        .await;
+        let req = test::TestRequest::post()
+            .uri("/rpc")
             .set_json(RpcRequest {
                 jsonrpc: "2.0".to_string(),
                 method: "get_repository".to_string(),
                 params: Some(serde_json::json!({})),
                 id: Some(serde_json::json!(21)),
-            }).to_request();
+            })
+            .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
         assert_eq!(resp.error.unwrap().code, -32602);
     }
@@ -700,14 +724,17 @@ mod tests {
                 .app_data(web::Data::new(Arc::new(repo) as Arc<dyn CddRepository>))
                 .app_data(web::Data::new(Arc::new(gh) as Arc<dyn GitHubClient>))
                 .configure(configure),
-        ).await;
-        let req = test::TestRequest::post().uri("/rpc")
+        )
+        .await;
+        let req = test::TestRequest::post()
+            .uri("/rpc")
             .set_json(RpcRequest {
                 jsonrpc: "2.0".to_string(),
                 method: "get_repository".to_string(),
                 params: Some(serde_json::json!({ "repo_id": 999 })),
                 id: Some(serde_json::json!(22)),
-            }).to_request();
+            })
+            .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
         assert_eq!(resp.error.unwrap().code, 404);
     }
@@ -723,14 +750,17 @@ mod tests {
                 .app_data(web::Data::new(Arc::new(repo) as Arc<dyn CddRepository>))
                 .app_data(web::Data::new(Arc::new(gh) as Arc<dyn GitHubClient>))
                 .configure(configure),
-        ).await;
-        let req = test::TestRequest::post().uri("/rpc")
+        )
+        .await;
+        let req = test::TestRequest::post()
+            .uri("/rpc")
             .set_json(RpcRequest {
                 jsonrpc: "2.0".to_string(),
                 method: "get_repository".to_string(),
                 params: Some(serde_json::json!({ "repo_id": 1 })),
                 id: Some(serde_json::json!(23)),
-            }).to_request();
+            })
+            .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
         assert_eq!(resp.error.unwrap().code, 500);
     }
@@ -746,14 +776,17 @@ mod tests {
                 .app_data(web::Data::new(Arc::new(repo) as Arc<dyn CddRepository>))
                 .app_data(web::Data::new(Arc::new(gh) as Arc<dyn GitHubClient>))
                 .configure(configure),
-        ).await;
-        let req = test::TestRequest::post().uri("/rpc")
+        )
+        .await;
+        let req = test::TestRequest::post()
+            .uri("/rpc")
             .set_json(RpcRequest {
                 jsonrpc: "2.0".to_string(),
                 method: "get_user_role".to_string(),
                 params: Some(serde_json::json!({ "org_id": 1, "user_id": 2 })),
                 id: Some(serde_json::json!(30)),
-            }).to_request();
+            })
+            .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
         assert!(resp.result.is_some());
         assert_eq!(resp.result.unwrap()["role"], "owner");
@@ -768,14 +801,17 @@ mod tests {
                 .app_data(web::Data::new(Arc::new(repo) as Arc<dyn CddRepository>))
                 .app_data(web::Data::new(Arc::new(gh) as Arc<dyn GitHubClient>))
                 .configure(configure),
-        ).await;
-        let req = test::TestRequest::post().uri("/rpc")
+        )
+        .await;
+        let req = test::TestRequest::post()
+            .uri("/rpc")
             .set_json(RpcRequest {
                 jsonrpc: "2.0".to_string(),
                 method: "get_user_role".to_string(),
                 params: Some(serde_json::json!({ "org_id": 1 })),
                 id: Some(serde_json::json!(31)),
-            }).to_request();
+            })
+            .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
         assert_eq!(resp.error.unwrap().code, -32602);
     }
@@ -790,14 +826,17 @@ mod tests {
                 .app_data(web::Data::new(Arc::new(repo) as Arc<dyn CddRepository>))
                 .app_data(web::Data::new(Arc::new(gh) as Arc<dyn GitHubClient>))
                 .configure(configure),
-        ).await;
-        let req = test::TestRequest::post().uri("/rpc")
+        )
+        .await;
+        let req = test::TestRequest::post()
+            .uri("/rpc")
             .set_json(RpcRequest {
                 jsonrpc: "2.0".to_string(),
                 method: "get_user_role".to_string(),
                 params: Some(serde_json::json!({ "org_id": 1, "user_id": 999 })),
                 id: Some(serde_json::json!(32)),
-            }).to_request();
+            })
+            .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
         assert_eq!(resp.error.unwrap().code, 404);
     }
@@ -813,14 +852,17 @@ mod tests {
                 .app_data(web::Data::new(Arc::new(repo) as Arc<dyn CddRepository>))
                 .app_data(web::Data::new(Arc::new(gh) as Arc<dyn GitHubClient>))
                 .configure(configure),
-        ).await;
-        let req = test::TestRequest::post().uri("/rpc")
+        )
+        .await;
+        let req = test::TestRequest::post()
+            .uri("/rpc")
             .set_json(RpcRequest {
                 jsonrpc: "2.0".to_string(),
                 method: "get_user_role".to_string(),
                 params: Some(serde_json::json!({ "org_id": 1, "user_id": 2 })),
                 id: Some(serde_json::json!(33)),
-            }).to_request();
+            })
+            .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
         assert_eq!(resp.error.unwrap().code, 500);
     }
@@ -828,27 +870,31 @@ mod tests {
     #[actix_web::test]
     async fn test_create_organization_happy_path() {
         let mut repo = MockCddRepository::new();
-        repo.expect_create_organization()
-            .returning(|_, _, _| Ok(crate::db::models::Organization {
+        repo.expect_create_organization().returning(|_, _, _| {
+            Ok(crate::db::models::Organization {
                 id: 1,
                 github_id: None,
                 login: "new-org".to_string(),
                 description: None,
-            }));
+            })
+        });
         let gh = MockGitHubClient::new();
         let app = test::init_service(
             App::new()
                 .app_data(web::Data::new(Arc::new(repo) as Arc<dyn CddRepository>))
                 .app_data(web::Data::new(Arc::new(gh) as Arc<dyn GitHubClient>))
                 .configure(configure),
-        ).await;
-        let req = test::TestRequest::post().uri("/rpc")
+        )
+        .await;
+        let req = test::TestRequest::post()
+            .uri("/rpc")
             .set_json(RpcRequest {
                 jsonrpc: "2.0".to_string(),
                 method: "create_organization".to_string(),
                 params: Some(serde_json::json!({ "login": "new-org" })),
                 id: Some(serde_json::json!(40)),
-            }).to_request();
+            })
+            .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
         assert!(resp.result.is_some());
         assert!(resp.error.is_none());
@@ -863,14 +909,17 @@ mod tests {
                 .app_data(web::Data::new(Arc::new(repo) as Arc<dyn CddRepository>))
                 .app_data(web::Data::new(Arc::new(gh) as Arc<dyn GitHubClient>))
                 .configure(configure),
-        ).await;
-        let req = test::TestRequest::post().uri("/rpc")
+        )
+        .await;
+        let req = test::TestRequest::post()
+            .uri("/rpc")
             .set_json(RpcRequest {
                 jsonrpc: "2.0".to_string(),
                 method: "create_organization".to_string(),
                 params: Some(serde_json::json!({})),
                 id: Some(serde_json::json!(41)),
-            }).to_request();
+            })
+            .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
         assert_eq!(resp.error.unwrap().code, -32602);
     }
@@ -886,14 +935,17 @@ mod tests {
                 .app_data(web::Data::new(Arc::new(repo) as Arc<dyn CddRepository>))
                 .app_data(web::Data::new(Arc::new(gh) as Arc<dyn GitHubClient>))
                 .configure(configure),
-        ).await;
-        let req = test::TestRequest::post().uri("/rpc")
+        )
+        .await;
+        let req = test::TestRequest::post()
+            .uri("/rpc")
             .set_json(RpcRequest {
                 jsonrpc: "2.0".to_string(),
                 method: "create_organization".to_string(),
                 params: Some(serde_json::json!({ "login": "new-org" })),
                 id: Some(serde_json::json!(42)),
-            }).to_request();
+            })
+            .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
         assert_eq!(resp.error.unwrap().code, 500);
     }
@@ -901,28 +953,32 @@ mod tests {
     #[actix_web::test]
     async fn test_create_repository_happy_path() {
         let mut repo = MockCddRepository::new();
-        repo.expect_create_repository()
-            .returning(|_, _, _, _| Ok(crate::db::models::Repository {
+        repo.expect_create_repository().returning(|_, _, _, _| {
+            Ok(crate::db::models::Repository {
                 id: 1,
                 organization_id: 1,
                 github_id: None,
                 name: "new-repo".to_string(),
                 description: None,
-            }));
+            })
+        });
         let gh = MockGitHubClient::new();
         let app = test::init_service(
             App::new()
                 .app_data(web::Data::new(Arc::new(repo) as Arc<dyn CddRepository>))
                 .app_data(web::Data::new(Arc::new(gh) as Arc<dyn GitHubClient>))
                 .configure(configure),
-        ).await;
-        let req = test::TestRequest::post().uri("/rpc")
+        )
+        .await;
+        let req = test::TestRequest::post()
+            .uri("/rpc")
             .set_json(RpcRequest {
                 jsonrpc: "2.0".to_string(),
                 method: "create_repository".to_string(),
                 params: Some(serde_json::json!({ "org_id": 1, "name": "new-repo" })),
                 id: Some(serde_json::json!(50)),
-            }).to_request();
+            })
+            .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
         assert!(resp.result.is_some());
         assert!(resp.error.is_none());
@@ -937,14 +993,17 @@ mod tests {
                 .app_data(web::Data::new(Arc::new(repo) as Arc<dyn CddRepository>))
                 .app_data(web::Data::new(Arc::new(gh) as Arc<dyn GitHubClient>))
                 .configure(configure),
-        ).await;
-        let req = test::TestRequest::post().uri("/rpc")
+        )
+        .await;
+        let req = test::TestRequest::post()
+            .uri("/rpc")
             .set_json(RpcRequest {
                 jsonrpc: "2.0".to_string(),
                 method: "create_repository".to_string(),
                 params: Some(serde_json::json!({ "org_id": 1 })),
                 id: Some(serde_json::json!(51)),
-            }).to_request();
+            })
+            .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
         assert_eq!(resp.error.unwrap().code, -32602);
     }
@@ -960,14 +1019,17 @@ mod tests {
                 .app_data(web::Data::new(Arc::new(repo) as Arc<dyn CddRepository>))
                 .app_data(web::Data::new(Arc::new(gh) as Arc<dyn GitHubClient>))
                 .configure(configure),
-        ).await;
-        let req = test::TestRequest::post().uri("/rpc")
+        )
+        .await;
+        let req = test::TestRequest::post()
+            .uri("/rpc")
             .set_json(RpcRequest {
                 jsonrpc: "2.0".to_string(),
                 method: "create_repository".to_string(),
                 params: Some(serde_json::json!({ "org_id": 1, "name": "new-repo" })),
                 id: Some(serde_json::json!(52)),
-            }).to_request();
+            })
+            .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
         assert_eq!(resp.error.unwrap().code, 500);
     }

@@ -67,6 +67,10 @@ mod tests {
 
     #[test]
     fn test_default_config() {
+        std::env::remove_var("CDD__JWT_SECRET");
+        std::env::remove_var("CDD__WEBHOOK_SECRET");
+        std::env::remove_var("CDD__GITHUB_TOKEN");
+        std::env::remove_var("CDD__OFFLINE_MODE");
         let cfg = AppConfig::load(None).unwrap();
         assert_eq!(cfg.server_bind, "0.0.0.0:8080");
         assert_eq!(

@@ -135,7 +135,11 @@ pub async fn login_password(
                 if let Some(h) = &user.password_hash {
                     if verify_password(pw, h) {
                         return HttpResponse::Ok().json(AuthResponse {
-                            token: generate_token(user.id, &user.username, cfg.jwt_secret.as_bytes()),
+                            token: generate_token(
+                                user.id,
+                                &user.username,
+                                cfg.jwt_secret.as_bytes(),
+                            ),
                         });
                     }
                 }
