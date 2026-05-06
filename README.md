@@ -1,27 +1,24 @@
 # cdd-ctl
 
-> This document is the main entry point for the project, providing a high-level overview, feature summary, and links to further documentation.
-
+> The central daemon manager, API gateway, and backend infrastructure for the `cdd-*` SDK toolchain.
 
 [![CI](https://github.com/SamuelMarks/cdd-ctl/actions/workflows/ci.yml/badge.svg)](https://github.com/SamuelMarks/cdd-ctl/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0%20OR%20MIT-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Test Coverage](https://img.shields.io/badge/coverage-100%25-success.svg)](https://github.com/SamuelMarks/cdd-ctl/actions)
 [![Doc Coverage](https://img.shields.io/badge/docs-100%25-success.svg)](https://github.com/SamuelMarks/cdd-ctl/actions)
 
-Central daemon manager, API Gateway, and SDK management backend for the `cdd-*` toolchain.
-
-`cdd-ctl` serves as the robust Rust backend orchestrating the multi-language JSON-RPC ecosystem. It features an integrated daemon-manager to supervise child processes, coupled with a comprehensive OpenAPI-driven web backend for managing Projects (Organizations), SDKs (Repositories), and Releases with Role-Based Access Control (RBAC).
+`cdd-ctl` is a high-performance Rust backend that orchestrates a multi-language JSON-RPC ecosystem. It provides an integrated daemon manager to supervise child processes alongside a comprehensive, OpenAPI-driven web backend. Built with Role-Based Access Control (RBAC), `cdd-ctl` securely manages organizations, SDK repositories, and software releases.
 
 ## Features
 
-- **Daemon Manager:** Built-in supervisor managing the lifecycle, standard-streams (logging), and auto-restart backoff of up to 13 distinct `cdd-*` JSON-RPC language servers.
-- **REST API Gateway:** High-performance RESTful API built on `actix-web`.
-- **Database & ORM:** Fully implemented PostgreSQL data models for Organizations, Users, Repositories, and Releases using `diesel`.
-- **GitHub Integrations:** Integrated GitHub OAuth, webhooks, and automated secrets management (via Libsodium-sealed Action Secrets).
-- **Authentication & Security:** Secure JWT-based `Bearer` auth, featuring an OAuth2 password grant flow with **Argon2** password hashing.
-- **Role-Based Access Control (RBAC):** Organization ownership models, ensuring secure management of underlying SDKs and sync processes.
-- **OpenAPI Integration:** Fully self-documenting. Exposes a live Swagger UI at `/swagger-ui/` using `utoipa` out-of-the-box.
-- **100% Coverage:** Guaranteed high quality via strict 100% Rustdoc and Test coverage requirements (`cargo tarpaulin`).
+- **Daemon Manager:** A built-in supervisor that manages the lifecycle, logging, and auto-restart backoff for up to 13 distinct `cdd-*` JSON-RPC language servers.
+- **REST API Gateway:** A high-performance RESTful API built on the `actix-web` framework.
+- **Database & ORM:** Robust PostgreSQL data modeling using `diesel` to manage organizations, users, repositories, and releases.
+- **GitHub Integration:** Seamlessly supports GitHub OAuth, webhooks, and automated secret management using Libsodium.
+- **Authentication:** Secure JWT-based `Bearer` authentication, including an OAuth2 password grant flow with Argon2 hashing.
+- **Access Control (RBAC):** Organization ownership models that securely isolate management of SDKs and synchronization processes.
+- **OpenAPI Integration:** Fully self-documenting. Exposes a live Swagger UI at `/swagger-ui/` out of the box using `utoipa`.
+- **Quality Assurance:** Maintained with strict 100% test and rustdoc coverage requirements (`cargo tarpaulin`), enforced in CI.
 
 ## Supported Ecosystems
 
@@ -43,15 +40,17 @@ Central daemon manager, API Gateway, and SDK management backend for the `cdd-*` 
 | [`cdd-swift`](https://github.com/SamuelMarks/cdd-swift)        | Swift                           | Client; Client CLI; Server |                                                      | OpenAPI 3.2.0                   | [![Swift](https://github.com/SamuelMarks/cdd-swift/actions/workflows/swift.yml/badge.svg)](https://github.com/SamuelMarks/cdd-swift/actions/workflows/swift.yml) | ✅ Supported   | 91.33MB - Executes via pure WASI                              |
 | [`cdd-ts`](https://github.com/offscale/cdd-ts)                 | TypeScript                      | Client; Client CLI; Server | Auto-Admin UI; Angular; fetch; Axios; Node.js        | OpenAPI 3.2.0 & Swagger 2       | [![Tests and coverage](https://github.com/offscale/cdd-ts/actions/workflows/ci.yml/badge.svg)](https://github.com/offscale/cdd-ts/actions/workflows/ci.yml)      | ✅ Supported   | 138.36MB - Executes via WASI (Node.js polyfilled)             |
 
-_See `cdd_docs_prompt.md` and `TO_DOCS_JSON.md` in this repository for the system prompts used to unify documentation and CLI interfaces across the entire `cdd-_` ecosystem.\*
+*Note: See `cdd_docs_prompt.md` and `TO_DOCS_JSON.md` in this repository for the system prompts used to unify documentation and CLI interfaces across the entire `cdd-*` ecosystem.*
 
 ### Browser-Native Execution
 
-Alongside the CLI and server modes, the project ships with a pure-JavaScript WASI-compatible execution environment: **`cdd-ctl-wasm-sdk`**. This allows you to evaluate your OpenAPI generation schemas directly within the browser (client-side) against the 12 fully supported compiled `cdd-*` WASM binaries (C, C++, C#, Go, Java, Kotlin, PHP, Python, Ruby, Rust, Swift, TypeScript) without requiring backend communication. Heavy-VM runtimes are intentionally unsupported in this mode and rely on graceful degradation to JSON-RPC over HTTP.
+In addition to CLI and server modes, the project includes **`cdd-ctl-wasm-sdk`**, a pure-JavaScript WASI-compatible execution environment. This allows you to evaluate your OpenAPI generation schemas directly in the browser. You can run any of our 12 fully supported `cdd-*` WASM binaries (C, C++, C#, Go, Java, Kotlin, PHP, Python, Ruby, Rust, Swift, TypeScript) entirely client-side, with no backend communication required.
+
+Heavy-VM runtimes gracefully degrade to using JSON-RPC over HTTP rather than running locally in the browser.
 
 ## Documentation
 
-For detailed guides on utilizing the `cdd-*` architecture and configuring this tool, refer to our comprehensive documentation:
+For detailed guides on configuring `cdd-ctl` and utilizing the `cdd-*` architecture, please refer to our comprehensive documentation:
 
 - [**Architecture Guide**](ARCHITECTURE.md)
 - [**Usage Guide**](USAGE.md)
@@ -62,7 +61,7 @@ For detailed guides on utilizing the `cdd-*` architecture and configuring this t
 
 ### Starting the Server
 
-You can launch the API gateway and daemon-manager via Cargo:
+You can launch the API gateway and daemon manager locally using Cargo:
 
 ```bash
 # Native dependencies mode (REST interface)
@@ -71,35 +70,27 @@ cargo run --bin cdd-ctl --release -- --bind 0.0.0.0:8080 --config ./config.json
 # WASM mode (runs compiled WASM binaries via wasmtime, REST interface)
 cargo run --bin cdd-ctl-wasm --release -- --bind 0.0.0.0:8081 --config ./config.json
 
-# JSON-RPC Native dependencies mode (JSON RPC over HTTP)
+# JSON-RPC Native dependencies mode (JSON-RPC over HTTP)
 cargo run --bin cdd-rpc --release -- --bind 0.0.0.0:8082 --config ./config.json
 
-# JSON-RPC WASM mode (runs compiled WASM binaries via wasmtime, JSON RPC over HTTP)
+# JSON-RPC WASM mode (runs compiled WASM binaries via wasmtime, JSON-RPC over HTTP)
 cargo run --bin cdd-rpc-wasm --release -- --bind 0.0.0.0:8083 --config ./config.json
 ```
 
-### Accessing the Interactive API
+### Accessing the API
 
-Once running, the interactive OpenAPI standard documentation and sandbox is available at:
+Once the server is running, the interactive OpenAPI documentation and sandbox will be available at:
 `http://localhost:8080/swagger-ui/`
-
-## Test and Documentation Coverage
-
-This repository is maintained with strict 100% test coverage and 100% rustdoc coverage requirements enforced in CI.
 
 ---
 
 ## License
 
-Licensed under either of
+This project is dual-licensed under either of the following, at your option:
 
 - Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or <https://www.apache.org/licenses/LICENSE-2.0>)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or <https://opensource.org/licenses/MIT>)
-
-at your option.
+- MIT License ([LICENSE-MIT](LICENSE-MIT) or <https://opensource.org/licenses/MIT>)
 
 ### Contribution
 
-Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
-dual licensed as above, without any additional terms or conditions.
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual-licensed as above, without any additional terms or conditions.
