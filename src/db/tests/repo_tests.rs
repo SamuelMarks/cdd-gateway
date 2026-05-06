@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 fn get_repo() -> PgRepository {
     let database_url = env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgres://localhost/cdd_ctl_test".to_string());
+        .unwrap_or_else(|_| "postgres://postgres:password@localhost/cdd".to_string());
     let pool = establish_connection_pool(&database_url);
     PgRepository { pool }
 }
