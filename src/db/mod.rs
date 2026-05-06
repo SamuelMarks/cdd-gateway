@@ -5,6 +5,7 @@ pub mod models;
 pub mod repository;
 /// Diesel schema
 /// Schema module
+#[allow(missing_docs)]
 pub mod schema;
 
 #[cfg(test)]

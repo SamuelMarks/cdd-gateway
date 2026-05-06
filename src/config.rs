@@ -64,8 +64,8 @@ impl AppConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
     use once_cell::sync::Lazy;
+    use std::sync::Mutex;
 
     static ENV_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
@@ -78,7 +78,7 @@ mod tests {
         std::env::remove_var("CDD__WEBHOOK_SECRET");
         std::env::remove_var("CDD__GITHUB_TOKEN");
         std::env::remove_var("CDD__OFFLINE_MODE");
-        
+
         let cfg = AppConfig::load(None).unwrap();
         assert_eq!(cfg.server_bind, "0.0.0.0:8080");
         assert_eq!(
