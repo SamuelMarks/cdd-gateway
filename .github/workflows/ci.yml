@@ -13,6 +13,20 @@ jobs:
   build_and_test:
     name: Build and Test
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: cdd
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - uses: actions/checkout@v6
@@ -20,7 +34,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y pkg-config libssl-dev gcc
+          sudo apt-get install -y pkg-config libssl-dev gcc libpq-dev
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -29,6 +43,12 @@ jobs:
 
       - name: Install cargo-tarpaulin
         run: cargo install cargo-tarpaulin
+
+      - name: Setup Database
+        run: |
+          cargo install diesel_cli --no-default-features --features postgres
+          diesel setup --database-url postgres://postgres:password@localhost/cdd
+          diesel migration run --database-url postgres://postgres:password@localhost/cdd
 
       - name: Run checks
         run: cargo check --verbose

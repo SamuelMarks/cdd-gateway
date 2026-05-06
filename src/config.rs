@@ -64,13 +64,21 @@ impl AppConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+    use once_cell::sync::Lazy;
+
+    static ENV_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
     #[test]
-    fn test_default_config() {
+    fn test_config_env_overrides() {
+        let _lock = ENV_MUTEX.lock().unwrap();
+
+        // 1. Default config
         std::env::remove_var("CDD__JWT_SECRET");
         std::env::remove_var("CDD__WEBHOOK_SECRET");
         std::env::remove_var("CDD__GITHUB_TOKEN");
         std::env::remove_var("CDD__OFFLINE_MODE");
+        
         let cfg = AppConfig::load(None).unwrap();
         assert_eq!(cfg.server_bind, "0.0.0.0:8080");
         assert_eq!(
@@ -81,34 +89,26 @@ mod tests {
         assert_eq!(cfg.webhook_secret, "my_webhook_secret");
         assert!(cfg.github_token.is_none());
         assert!(!cfg.offline_mode);
-    }
 
-    #[test]
-    fn test_jwt_secret_from_env() {
+        // 2. JWT Secret override
         std::env::set_var("CDD__JWT_SECRET", "test-jwt-secret");
         let cfg = AppConfig::load(None).unwrap();
         assert_eq!(cfg.jwt_secret, "test-jwt-secret");
         std::env::remove_var("CDD__JWT_SECRET");
-    }
 
-    #[test]
-    fn test_webhook_secret_from_env() {
+        // 3. Webhook Secret override
         std::env::set_var("CDD__WEBHOOK_SECRET", "test-webhook-secret");
         let cfg = AppConfig::load(None).unwrap();
         assert_eq!(cfg.webhook_secret, "test-webhook-secret");
         std::env::remove_var("CDD__WEBHOOK_SECRET");
-    }
 
-    #[test]
-    fn test_github_token_from_env() {
+        // 4. GitHub Token override
         std::env::set_var("CDD__GITHUB_TOKEN", "ghp_test123");
         let cfg = AppConfig::load(None).unwrap();
         assert_eq!(cfg.github_token.as_deref(), Some("ghp_test123"));
         std::env::remove_var("CDD__GITHUB_TOKEN");
-    }
 
-    #[test]
-    fn test_offline_mode_from_env() {
+        // 5. Offline Mode override
         std::env::set_var("CDD__OFFLINE_MODE", "true");
         let cfg = AppConfig::load(None).unwrap();
         assert!(cfg.offline_mode);
