@@ -74,3 +74,29 @@ teavm-cli-*.jar
 
 # Claude
 .claude/
+
+# Additional wildcards
+*.log
+*.tmp
+*.temp
+tmp/
+temp/
+.pytest_cache/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+.tox/
+.coverage
+coverage.xml
+nosetests.xml
+node_modules/
+dist/
+build/
+*.tgz
+*.gz
+*.zip
