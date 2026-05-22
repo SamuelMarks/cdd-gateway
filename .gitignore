@@ -100,3 +100,11 @@ build/
 *.tgz
 *.gz
 *.zip
+
+# Catch-all
+*-E
+*.profraw
+*_err.txt
+*_cmds.txt
+missing_file_docs.txt
+coverage.out
