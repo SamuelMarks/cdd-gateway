@@ -131,4 +131,45 @@ mod tests {
         let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_success());
     }
+
+    #[actix_web::test]
+    async fn test_configure() {
+        let app = test::init_service(actix_web::App::new().configure(configure)).await;
+        let _ = app;
+    }
+
+    #[actix_web::test]
+    async fn test_swagger_ui() {
+        let _ = swagger_ui();
+    }
+
+    #[actix_web::test]
+    async fn test_security_addon() {
+        use utoipa::Modify;
+        let mut openapi = utoipa::openapi::OpenApi::new(
+            utoipa::openapi::Info::new("test", "1.0"),
+            utoipa::openapi::Paths::new(),
+        );
+        openapi.components = Some(utoipa::openapi::ComponentsBuilder::new().build());
+        let addon = SecurityAddon;
+        addon.modify(&mut openapi);
+        assert!(openapi
+            .components
+            .unwrap()
+            .security_schemes
+            .contains_key("bearer_auth"));
+    }
+
+    #[test]
+    async fn test_security_addon_none() {
+        use utoipa::Modify;
+        let mut openapi = utoipa::openapi::OpenApi::new(
+            utoipa::openapi::Info::new("test", "1.0"),
+            utoipa::openapi::Paths::new(),
+        );
+        openapi.components = None;
+        let addon = SecurityAddon;
+        addon.modify(&mut openapi);
+        assert!(openapi.components.is_none());
+    }
 }

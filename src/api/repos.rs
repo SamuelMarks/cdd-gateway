@@ -143,4 +143,83 @@ mod tests {
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 403);
     }
+
+    #[actix_web::test]
+    async fn test_create_repo_create_fail() {
+        let mut mock_repo = MockCddRepository::new();
+        mock_repo
+            .expect_get_user_role()
+            .returning(|_, _| Ok(Some("owner".to_string())));
+        mock_repo
+            .expect_create_repository()
+            .returning(|_, _, _, _| Err(diesel::result::Error::NotFound));
+
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(
+                    std::sync::Arc::new(mock_repo) as std::sync::Arc<dyn CddRepository>
+                ))
+                .configure(configure),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/repos")
+            .insert_header((
+                "Authorization",
+                format!(
+                    "Bearer {}",
+                    crate::api::auth_middleware::generate_test_token()
+                ),
+            ))
+            .set_json(RepoPayload {
+                organization_id: 1,
+                name: "test_repo".to_string(),
+                description: None,
+            })
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(
+            resp.status(),
+            actix_web::http::StatusCode::INTERNAL_SERVER_ERROR
+        );
+    }
+
+    #[actix_web::test]
+    async fn test_create_repo_role_fail() {
+        let mut mock_repo = MockCddRepository::new();
+        mock_repo
+            .expect_get_user_role()
+            .returning(|_, _| Err(diesel::result::Error::NotFound));
+
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(
+                    std::sync::Arc::new(mock_repo) as std::sync::Arc<dyn CddRepository>
+                ))
+                .configure(configure),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/repos")
+            .insert_header((
+                "Authorization",
+                format!(
+                    "Bearer {}",
+                    crate::api::auth_middleware::generate_test_token()
+                ),
+            ))
+            .set_json(RepoPayload {
+                organization_id: 1,
+                name: "test_repo".to_string(),
+                description: None,
+            })
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(
+            resp.status(),
+            actix_web::http::StatusCode::INTERNAL_SERVER_ERROR
+        );
+    }
 }

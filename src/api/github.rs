@@ -132,10 +132,7 @@ fn verify_signature(secret: &str, payload: &[u8], signature: &str) -> bool {
     }
     let sig_hex = &signature[7..];
 
-    let mut mac = match HmacSha256::new_from_slice(secret.as_bytes()) {
-        Ok(m) => m,
-        Err(_) => return false,
-    };
+    let mut mac = HmacSha256::new_from_slice(secret.as_bytes()).expect("invalid key");
 
     mac.update(payload);
     let result = mac.finalize().into_bytes();
@@ -431,6 +428,315 @@ mod tests {
                 secret_name: "sec".into(),
                 secret_value: "val".into(),
             })
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert!(resp.status().is_success());
+    }
+
+    #[actix_web::test]
+    async fn test_sync_github_list_orgs_fail() {
+        let mock_repo = MockCddRepository::new();
+        let mut mock_gh = MockGitHubClient::new();
+        mock_gh
+            .expect_list_orgs()
+            .returning(|_| Err("failed".into()));
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(Arc::new(mock_repo) as Arc<dyn CddRepository>))
+                .app_data(web::Data::new(Arc::new(mock_gh) as Arc<dyn GitHubClient>))
+                .configure(configure),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/github/sync")
+            .insert_header(("Authorization", format!("Bearer {}", generate_test_token())))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(
+            resp.status(),
+            actix_web::http::StatusCode::INTERNAL_SERVER_ERROR
+        );
+    }
+
+    #[actix_web::test]
+    async fn test_sync_github_upsert_org_fail() {
+        let mut mock_repo = MockCddRepository::new();
+        mock_repo
+            .expect_upsert_organization()
+            .returning(|_, _, _| Err(diesel::result::Error::NotFound));
+        let mut mock_gh = MockGitHubClient::new();
+        mock_gh.expect_list_orgs().returning(|_| {
+            Ok(vec![GitHubOrg {
+                id: 10,
+                login: "org".into(),
+                description: None,
+            }])
+        });
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(Arc::new(mock_repo) as Arc<dyn CddRepository>))
+                .app_data(web::Data::new(Arc::new(mock_gh) as Arc<dyn GitHubClient>))
+                .configure(configure),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/github/sync")
+            .insert_header(("Authorization", format!("Bearer {}", generate_test_token())))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert!(resp.status().is_success());
+    }
+
+    #[actix_web::test]
+    async fn test_create_release() {
+        let mut mock_gh = MockGitHubClient::new();
+        mock_gh
+            .expect_create_release()
+            .returning(|_, _, _, _, _, _| {
+                Ok(crate::github::models::GitHubRelease {
+                    id: 1,
+                    tag_name: "v".into(),
+                    name: None,
+                    body: None,
+                })
+            });
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(
+                    Arc::new(MockCddRepository::new()) as Arc<dyn CddRepository>
+                ))
+                .app_data(web::Data::new(Arc::new(mock_gh) as Arc<dyn GitHubClient>))
+                .configure(configure),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/github/releases")
+            .insert_header(("Authorization", format!("Bearer {}", generate_test_token())))
+            .set_json(ReleasePayload {
+                owner: "owner".into(),
+                repo: "repo".into(),
+                tag_name: "v1.0.0".into(),
+                name: Some("Release v1.0.0".into()),
+                body: Some("Body".into()),
+            })
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), actix_web::http::StatusCode::CREATED);
+    }
+
+    #[actix_web::test]
+    async fn test_create_release_fail() {
+        let mut mock_gh = MockGitHubClient::new();
+        mock_gh
+            .expect_create_release()
+            .returning(|_, _, _, _, _, _| Err("failed".into()));
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(
+                    Arc::new(MockCddRepository::new()) as Arc<dyn CddRepository>
+                ))
+                .app_data(web::Data::new(Arc::new(mock_gh) as Arc<dyn GitHubClient>))
+                .configure(configure),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/github/releases")
+            .insert_header(("Authorization", format!("Bearer {}", generate_test_token())))
+            .set_json(ReleasePayload {
+                owner: "owner".into(),
+                repo: "repo".into(),
+                tag_name: "v1.0.0".into(),
+                name: Some("Release v1.0.0".into()),
+                body: Some("Body".into()),
+            })
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(
+            resp.status(),
+            actix_web::http::StatusCode::INTERNAL_SERVER_ERROR
+        );
+    }
+
+    #[actix_web::test]
+    async fn test_trigger_action() {
+        let mut mock_gh = MockGitHubClient::new();
+        mock_gh
+            .expect_trigger_workflow()
+            .returning(|_, _, _, _, _| Ok(()));
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(
+                    Arc::new(MockCddRepository::new()) as Arc<dyn CddRepository>
+                ))
+                .app_data(web::Data::new(Arc::new(mock_gh) as Arc<dyn GitHubClient>))
+                .configure(configure),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/github/actions/dispatch")
+            .insert_header(("Authorization", format!("Bearer {}", generate_test_token())))
+            .set_json(TriggerWorkflowPayload {
+                owner: "owner".into(),
+                repo: "repo".into(),
+                workflow_id: "workflow.yml".into(),
+                ref_branch: "main".into(),
+            })
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), actix_web::http::StatusCode::OK);
+    }
+
+    #[actix_web::test]
+    async fn test_trigger_action_fail() {
+        let mut mock_gh = MockGitHubClient::new();
+        mock_gh
+            .expect_trigger_workflow()
+            .returning(|_, _, _, _, _| Err("failed".into()));
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(
+                    Arc::new(MockCddRepository::new()) as Arc<dyn CddRepository>
+                ))
+                .app_data(web::Data::new(Arc::new(mock_gh) as Arc<dyn GitHubClient>))
+                .configure(configure),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/github/actions/dispatch")
+            .insert_header(("Authorization", format!("Bearer {}", generate_test_token())))
+            .set_json(TriggerWorkflowPayload {
+                owner: "owner".into(),
+                repo: "repo".into(),
+                workflow_id: "workflow.yml".into(),
+                ref_branch: "main".into(),
+            })
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(
+            resp.status(),
+            actix_web::http::StatusCode::INTERNAL_SERVER_ERROR
+        );
+    }
+
+    #[actix_web::test]
+    async fn test_create_secret_get_key_fail() {
+        let mut mock_gh = MockGitHubClient::new();
+        mock_gh
+            .expect_get_repo_public_key()
+            .returning(|_, _, _| Err("failed".into()));
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(
+                    Arc::new(MockCddRepository::new()) as Arc<dyn CddRepository>
+                ))
+                .app_data(web::Data::new(Arc::new(mock_gh) as Arc<dyn GitHubClient>))
+                .configure(configure),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/github/secrets")
+            .insert_header(("Authorization", format!("Bearer {}", generate_test_token())))
+            .set_json(CreateSecretPayload {
+                owner: "owner".into(),
+                repo: "repo".into(),
+                secret_name: "MY_SEC".into(),
+                secret_value: "val".into(),
+            })
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(
+            resp.status(),
+            actix_web::http::StatusCode::INTERNAL_SERVER_ERROR
+        );
+    }
+
+    #[actix_web::test]
+    async fn test_create_secret_create_fail() {
+        let mut mock_gh = MockGitHubClient::new();
+        mock_gh.expect_get_repo_public_key().returning(|_, _, _| {
+            Ok(GitHubPublicKey {
+                key_id: "kid".into(),
+                key: "k".into(),
+            })
+        });
+        mock_gh
+            .expect_create_repo_secret()
+            .returning(|_, _, _, _, _, _| Err("failed".into()));
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(
+                    Arc::new(MockCddRepository::new()) as Arc<dyn CddRepository>
+                ))
+                .app_data(web::Data::new(Arc::new(mock_gh) as Arc<dyn GitHubClient>))
+                .configure(configure),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/github/secrets")
+            .insert_header(("Authorization", format!("Bearer {}", generate_test_token())))
+            .set_json(CreateSecretPayload {
+                owner: "owner".into(),
+                repo: "repo".into(),
+                secret_name: "MY_SEC".into(),
+                secret_value: "val".into(),
+            })
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(
+            resp.status(),
+            actix_web::http::StatusCode::INTERNAL_SERVER_ERROR
+        );
+    }
+
+    #[actix_web::test]
+    async fn test_verify_signature_not_sha256() {
+        assert!(!super::verify_signature("sec", b"pay", "md5=bla"));
+    }
+
+    #[actix_web::test]
+    async fn test_sync_github_list_repos_fail() {
+        let mut mock_repo = MockCddRepository::new();
+        mock_repo.expect_upsert_organization().returning(|_, _, _| {
+            Ok(crate::db::models::Organization {
+                id: 1,
+                github_id: Some(10),
+                login: "org".into(),
+                description: None,
+            })
+        });
+        let mut mock_gh = MockGitHubClient::new();
+        mock_gh.expect_list_orgs().returning(|_| {
+            Ok(vec![GitHubOrg {
+                id: 10,
+                login: "org".into(),
+                description: None,
+            }])
+        });
+        mock_gh
+            .expect_list_repos()
+            .returning(|_, _| Err("failed".into()));
+
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(std::sync::Arc::new(mock_repo)
+                    as std::sync::Arc<dyn crate::db::repository::CddRepository>))
+                .app_data(web::Data::new(std::sync::Arc::new(mock_gh)
+                    as std::sync::Arc<dyn crate::github::client::GitHubClient>))
+                .configure(configure),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/github/sync")
+            .insert_header(("Authorization", format!("Bearer {}", generate_test_token())))
             .to_request();
         let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_success());

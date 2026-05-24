@@ -657,4 +657,38 @@ mod tests {
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), actix_web::http::StatusCode::UNAUTHORIZED);
     }
+
+    #[actix_web::test]
+    async fn test_login_password_verify_password_fail() {
+        let mut mock_repo = MockCddRepository::new();
+        mock_repo.expect_find_user_by_username().returning(|_| {
+            Ok(Some(User {
+                id: 1,
+                github_id: None,
+                username: "test".into(),
+                email: "test@example.com".into(),
+                password_hash: Some("invalid_hash".into()),
+            }))
+        });
+
+        let mock_gh = MockGitHubClient::new();
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(Arc::new(mock_repo) as Arc<dyn CddRepository>))
+                .app_data(web::Data::new(Arc::new(mock_gh) as Arc<dyn GitHubClient>))
+                .app_data(web::Data::new(test_config()))
+                .configure(configure),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/auth/login")
+            .set_json(LoginPayload {
+                username: "test".to_string(),
+                password: Some("pwd".to_string()),
+            })
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), actix_web::http::StatusCode::UNAUTHORIZED);
+    }
 }

@@ -102,4 +102,41 @@ mod tests {
         let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_success());
     }
+
+    #[actix_web::test]
+    async fn test_create_org_fail() {
+        let mut mock_repo = MockCddRepository::new();
+        mock_repo
+            .expect_create_organization()
+            .returning(|_, _, _| Err(diesel::result::Error::NotFound));
+
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(
+                    std::sync::Arc::new(mock_repo) as std::sync::Arc<dyn CddRepository>
+                ))
+                .configure(configure),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/orgs")
+            .insert_header((
+                "Authorization",
+                format!(
+                    "Bearer {}",
+                    crate::api::auth_middleware::generate_test_token()
+                ),
+            ))
+            .set_json(OrgPayload {
+                login: "test_org".to_string(),
+                description: Some("desc".to_string()),
+            })
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(
+            resp.status(),
+            actix_web::http::StatusCode::INTERNAL_SERVER_ERROR
+        );
+    }
 }

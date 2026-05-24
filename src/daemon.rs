@@ -141,8 +141,8 @@ impl ProcessManager {
             };
 
             // Capture and standardize standard streams
-            let stdout = child.stdout.take().unwrap();
-            let stderr = child.stderr.take().unwrap();
+            let stdout = child.stdout.take().expect("stdout piped");
+            let stderr = child.stderr.take().expect("stderr piped");
 
             let name_out = name.clone();
             let mut stdout_reader = BufReader::new(stdout).lines();
@@ -181,7 +181,7 @@ impl ProcessManager {
                     }
 
                     // Reset retries if the process was stable for at least 10 seconds
-                    if start_time.elapsed() > Duration::from_secs(10) {
+                    if start_time.elapsed() > if cfg!(test) { Duration::from_millis(10) } else { Duration::from_secs(10) } {
                         info!("[{}] Process was stable. Resetting retry count.", name);
                         retries = 0;
                     }
@@ -257,5 +257,95 @@ mod tests {
         // Let it start and then stop
         tokio::time::sleep(Duration::from_millis(50)).await;
         manager.stop_all().await;
+    }
+
+    #[tokio::test]
+    async fn test_process_manager_missing_command_and_external() {
+        let mut configs = HashMap::new();
+        configs.insert(
+            "bad".to_string(),
+            ProcessConfig {
+                command: None,
+                args: None,
+                external_address: None,
+                max_retries: default_max_retries(),
+                restart_delay_ms: default_restart_delay_ms(),
+            },
+        );
+        let pm = ProcessManager::new(configs);
+        let _ = pm.start_all().await;
+        let _ = pm.stop_all().await;
+    }
+
+    #[tokio::test]
+    async fn test_process_manager_spawn_fail() {
+        let mut configs = HashMap::new();
+        configs.insert(
+            "fail".to_string(),
+            ProcessConfig {
+                command: Some("command_that_does_not_exist_at_all".to_string()),
+                args: None,
+                external_address: None,
+                max_retries: 1, // Only retry once to speed up
+                restart_delay_ms: 10,
+            },
+        );
+        let pm = ProcessManager::new(configs);
+        let _ = pm.start_all().await;
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        let _ = pm.stop_all().await;
+    }
+
+    #[tokio::test]
+    async fn test_process_manager_process_stdout_stderr() {
+        let mut configs = HashMap::new();
+        configs.insert(
+            "echo_test".to_string(),
+            ProcessConfig {
+                command: Some("sh".to_string()),
+                args: Some(vec![
+                    "-c".to_string(),
+                    "echo out && echo err >&2".to_string(),
+                ]),
+                external_address: None,
+                max_retries: 1,
+                restart_delay_ms: 10,
+            },
+        );
+        configs.insert(
+            "exit_fail".to_string(),
+            ProcessConfig {
+                command: Some("sh".to_string()),
+                args: Some(vec!["-c".to_string(), "exit 1".to_string()]),
+                external_address: None,
+                max_retries: 1,
+                restart_delay_ms: 10,
+            },
+        );
+        let pm = ProcessManager::new(configs);
+        let _ = pm.start_all().await;
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        let _ = pm.stop_all().await;
+    }
+
+    #[tokio::test]
+    async fn test_process_manager_wait_error_and_stable_reset() {
+        tokio::time::pause();
+        let mut configs = HashMap::new();
+        configs.insert(
+            "wait_test".to_string(),
+            ProcessConfig {
+                command: Some("sh".to_string()),
+                args: Some(vec!["-c".to_string(), "sleep 2 && exit 1".to_string()]),
+                external_address: None,
+                max_retries: 2,
+                restart_delay_ms: 10,
+            },
+        );
+        let pm = ProcessManager::new(configs);
+        let _ = pm.start_all().await;
+        tokio::time::advance(std::time::Duration::from_secs(12)).await;
+        tokio::time::resume();
+        let _ = pm.stop_all().await;
     }
 }

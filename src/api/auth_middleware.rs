@@ -83,3 +83,65 @@ pub fn generate_test_token() -> String {
     )
     .unwrap()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use actix_web::{test, web, App, HttpResponse, Responder};
+
+    async fn dummy_handler(user: AuthenticatedUser) -> impl Responder {
+        HttpResponse::Ok().body(user.username)
+    }
+
+    #[actix_web::test]
+    async fn test_auth_middleware_valid_token_no_config() {
+        let app = test::init_service(App::new().route("/", web::get().to(dummy_handler))).await;
+
+        let token = generate_test_token();
+        let req = test::TestRequest::get()
+            .uri("/")
+            .insert_header(("Authorization", format!("Bearer {}", token)))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert!(resp.status().is_success());
+    }
+
+    #[actix_web::test]
+    async fn test_auth_middleware_invalid_token() {
+        let app = test::init_service(App::new().route("/", web::get().to(dummy_handler))).await;
+
+        let req = test::TestRequest::get()
+            .uri("/")
+            .insert_header(("Authorization", "Bearer invalid.token.value"))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), actix_web::http::StatusCode::UNAUTHORIZED);
+    }
+
+    #[actix_web::test]
+    async fn test_auth_middleware_no_token() {
+        let app = test::init_service(App::new().route("/", web::get().to(dummy_handler))).await;
+
+        let req = test::TestRequest::get().uri("/").to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), actix_web::http::StatusCode::UNAUTHORIZED);
+    }
+
+    #[actix_web::test]
+    async fn test_auth_middleware_with_config() {
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(AppConfig::load(None).unwrap()))
+                .route("/", web::get().to(dummy_handler)),
+        )
+        .await;
+
+        let token = generate_test_token();
+        let req = test::TestRequest::get()
+            .uri("/")
+            .insert_header(("Authorization", format!("Bearer {}", token)))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert!(resp.status().is_success());
+    }
+}

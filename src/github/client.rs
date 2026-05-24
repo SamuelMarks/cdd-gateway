@@ -172,7 +172,7 @@ impl GitHubClient for ReqwestGitHubClient {
         } else {
             Err(res
                 .error_description
-                .unwrap_or_else(|| "Unknown exchange error".into()))
+                .unwrap_or("Unknown exchange error".into()))
         }
     }
 
@@ -329,5 +329,87 @@ impl GitHubClient for ReqwestGitHubClient {
             .error_for_status()
             .map_err(Self::map_err)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[actix_web::test]
+    async fn test_new_client() {
+        let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string());
+        assert_eq!(client.client_id, "id");
+    }
+
+    #[actix_web::test]
+    async fn test_get_user() {
+        let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string());
+        let res = client.get_user("bad_token").await;
+        assert!(res.is_err());
+    }
+
+    #[actix_web::test]
+    async fn test_get_user_emails() {
+        let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string());
+        let res = client.get_emails("bad_token").await;
+        assert!(res.is_err());
+    }
+
+    #[actix_web::test]
+    async fn test_exchange_code() {
+        let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string());
+        let res = client.exchange_code("bad_code").await;
+        assert!(res.is_err());
+    }
+
+    #[actix_web::test]
+    async fn test_list_orgs() {
+        let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string());
+        let res = client.list_orgs("bad_token").await;
+        assert!(res.is_err());
+    }
+
+    #[actix_web::test]
+    async fn test_list_repos() {
+        let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string());
+        let res = client.list_repos("org", "bad_token").await;
+        assert!(res.is_err());
+    }
+
+    #[actix_web::test]
+    async fn test_get_repo_public_key() {
+        let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string());
+        let res = client
+            .get_repo_public_key("owner", "repo", "bad_token")
+            .await;
+        assert!(res.is_err());
+    }
+
+    #[actix_web::test]
+    async fn test_create_repo_secret() {
+        let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string());
+        let res = client
+            .create_repo_secret("owner", "repo", "key", "val", "kid", "bad_token")
+            .await;
+        assert!(res.is_err());
+    }
+
+    #[actix_web::test]
+    async fn test_trigger_workflow() {
+        let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string());
+        let res = client
+            .trigger_workflow("owner", "repo", "wf", "ref", "bad_token")
+            .await;
+        assert!(res.is_err());
+    }
+
+    #[actix_web::test]
+    async fn test_create_release() {
+        let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string());
+        let res = client
+            .create_release("token", "owner", "repo", "tag", None, None)
+            .await;
+        assert!(res.is_err());
     }
 }

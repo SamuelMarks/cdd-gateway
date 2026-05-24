@@ -1,4 +1,3 @@
-#![allow(missing_docs)]
 // @generated automatically by Diesel CLI.
 
 diesel::table! {
