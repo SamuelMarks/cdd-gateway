@@ -11,6 +11,7 @@ if /I "%TARGET%"=="help" goto help
 if /I "%TARGET%"=="all" goto help
 if /I "%TARGET%"=="install_base" goto install_base
 if /I "%TARGET%"=="install_deps" goto install_deps
+if /I "%TARGET%"=="docs" goto docs
 if /I "%TARGET%"=="build_docs" goto build_docs
 if /I "%TARGET%"=="build" goto build
 if /I "%TARGET%"=="test" goto test
@@ -22,6 +23,7 @@ if /I "%TARGET%"=="run_docker" goto run_docker
 echo Available commands:
 echo   install_base   - Install language runtime (Rust, Node.js, etc.)
 echo   install_deps   - Install local dependencies (cargo build, npm install)
+echo   docs           - Generate API docs and symlink to ./docs/html
 echo   build_docs     - Build the API docs and put them in the specified directory
 echo   build          - Build the cdd-ctl backend and package all cdd-* WASM projects
 echo   test           - Run tests locally
@@ -39,6 +41,15 @@ goto end
 :install_deps
 echo Installing local dependencies...
 cargo fetch
+goto end
+
+:docs
+echo Generating API docs...
+cargo doc --no-deps
+if not exist docs mkdir docs
+if exist docs\html rmdir /s /q docs\html 2>nul
+mklink /J docs\html target\doc
+echo ^<meta http-equiv="refresh" content="0; url=cdd_ctl/index.html"^> > target\doc\index.html
 goto end
 
 :build_docs

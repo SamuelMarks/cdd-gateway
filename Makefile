@@ -1,4 +1,4 @@
-.PHONY: all help install_base install_deps build_docs build test run build_docker run_docker
+.PHONY: all help install_base install_deps docs build_docs build test run build_docker run_docker
 
 DOCS_DIR ?= docs
 BIN_DIR ?= bin
@@ -9,6 +9,7 @@ help:
 	@echo "Available commands:"
 	@echo "  install_base   - Install language runtime (Rust, Node.js, etc.)"
 	@echo "  install_deps   - Install local dependencies (cargo build, npm install)"
+	@echo "  docs           - Generate API docs and symlink to ./docs/html"
 	@echo "  build_docs [DOCS_DIR=docs] - Build the API docs and put them in the specified directory"
 	@echo "  build [BIN_DIR=bin]        - Build the cdd-ctl backend and package all cdd-* WASM projects"
 	@echo "  test           - Run tests locally"
@@ -32,6 +33,14 @@ install_base:
 install_deps:
 	@echo "Installing local dependencies..."
 	cargo fetch
+
+docs:
+	@echo "Generating API docs..."
+	cargo doc --no-deps
+	mkdir -p docs
+	rm -rf docs/html
+	ln -s ../target/doc docs/html
+	echo '<meta http-equiv="refresh" content="0; url=cdd_ctl/index.html">' > target/doc/index.html
 
 build_docs:
 	@echo "Building API docs into $(DOCS_DIR)..."
