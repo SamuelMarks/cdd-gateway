@@ -74,7 +74,7 @@ async fn main() -> std::io::Result<()> {
                 tool.to_string(),
                 cdd_ctl::ProcessConfig {
                     command: Some("wasmtime".to_string()),
-                    args: Some(vec![format!("cdd-ctl-wasm-sdk/assets/wasm/{}.wasm", tool)]),
+                    args: Some(vec![format!("cdd-ctl-wasm-sdk/assets/wasm/{}.wasm", tool), "serve_json_rpc".to_string()]),
                     external_address: None,
                     max_retries: 5,
                     restart_delay_ms: 2000,

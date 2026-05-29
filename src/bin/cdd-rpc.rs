@@ -74,7 +74,7 @@ async fn main() -> std::io::Result<()> {
                 tool.to_string(),
                 cdd_ctl::ProcessConfig {
                     command: Some(tool.to_string()),
-                    args: Some(vec![]),
+                    args: Some(vec!["serve_json_rpc".to_string()]),
                     external_address: None,
                     max_retries: 5,
                     restart_delay_ms: 2000,
