@@ -57,6 +57,31 @@ enum Commands {
         #[arg(long)]
         no_wrapping: bool,
     },
+
+    /// Generate code from OpenAPI
+    #[command(name = "from_openapi")]
+    FromOpenApi {
+        /// Target language
+        target_language: String,
+
+        /// The generation target (e.g., to_sdk, to_server, to_orm)
+        target: String,
+
+        /// Remaining arguments to pass to the target language CLI
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+
+    /// Generate an OpenAPI specification from source code
+    #[command(name = "to_openapi")]
+    ToOpenApi {
+        /// Target language
+        target_language: String,
+
+        /// Remaining arguments to pass to the target language CLI
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
 }
 
 #[actix_web::main]
@@ -67,71 +92,171 @@ async fn main() -> std::io::Result<()> {
 
     let args = Args::parse();
 
-    if let Some(Commands::ToDocsJson {
-        target_language,
-        input,
-        no_imports,
-        no_wrapping,
-    }) = args.command
-    {
-        let target = if target_language.starts_with("cdd-") {
-            target_language.clone()
-        } else {
-            format!("cdd-{}", target_language)
-        };
+    match args.command {
+        Some(Commands::ToDocsJson {
+            target_language,
+            input,
+            no_imports,
+            no_wrapping,
+        }) => {
+            let target = if target_language.starts_with("cdd-") {
+                target_language.clone()
+            } else {
+                format!("cdd-{}", target_language)
+            };
 
-        if target == "cdd-java"
-            || target == "cdd-python"
-            || target == "cdd-python-all"
-            || target == "cdd-sh"
-        {
-            eprintln!("Error: The target '{}' is currently unsupported or unavailable for WebAssembly execution.", target);
-            std::process::exit(2);
+            if target == "cdd-java"
+                || target == "cdd-python"
+                || target == "cdd-python-all"
+                || target == "cdd-sh"
+            {
+                eprintln!("Error: The target '{}' is currently unsupported or unavailable for WebAssembly execution.", target);
+                std::process::exit(2);
+            }
+
+            let mut cmd = Command::new("wasmtime");
+
+            // WebAssembly GC for Kotlin
+            if target == "cdd-kotlin" {
+                cmd.arg("--wasm-features=gc");
+            }
+
+            let wasm_file = format!("cdd-ctl-wasm-sdk/assets/wasm/{}.wasm", target);
+
+            // Make input accessible to WASI
+            let input_path = std::path::Path::new(&input)
+                .canonicalize()
+                .unwrap_or_else(|_| std::path::PathBuf::from(&input));
+            let input_dir = input_path.parent().unwrap();
+            let filename = input_path.file_name().unwrap().to_string_lossy();
+            cmd.arg(format!("--dir={}::/workspace", input_dir.display()));
+
+            cmd.arg(&wasm_file);
+
+            // Pass arguments to WASM binary
+            cmd.arg("--");
+            cmd.arg("to_docs_json");
+            cmd.arg("-i").arg(format!("/workspace/{}", filename));
+
+            if no_imports {
+                cmd.arg("--no-imports");
+            }
+            if no_wrapping {
+                cmd.arg("--no-wrapping");
+            }
+
+            let output = cmd.output().unwrap_or_else(|e| {
+                eprintln!("Failed to execute wasmtime: {}", e);
+                std::process::exit(1);
+            });
+
+            if !output.status.success() {
+                std::io::Write::write_all(&mut std::io::stderr(), &output.stderr).unwrap();
+                std::process::exit(output.status.code().unwrap_or(1));
+            }
+
+            std::io::Write::write_all(&mut std::io::stdout(), &output.stdout).unwrap();
+            return Ok(());
         }
+        Some(Commands::FromOpenApi {
+            target_language,
+            target,
+            args: extra_args,
+        }) => {
+            let executable = if target_language.starts_with("cdd-") {
+                target_language.clone()
+            } else {
+                format!("cdd-{}", target_language)
+            };
 
-        let mut cmd = Command::new("wasmtime");
+            if executable == "cdd-java"
+                || executable == "cdd-python"
+                || executable == "cdd-python-all"
+                || executable == "cdd-sh"
+            {
+                eprintln!("Error: The target '{}' is currently unsupported or unavailable for WebAssembly execution.", executable);
+                std::process::exit(2);
+            }
 
-        // WebAssembly GC for Kotlin
-        if target == "cdd-kotlin" {
-            cmd.arg("--wasm-features=gc");
+            let mut cmd = Command::new("wasmtime");
+
+            // WebAssembly GC for Kotlin
+            if executable == "cdd-kotlin" {
+                cmd.arg("--wasm-features=gc");
+            }
+
+            let wasm_file = format!("cdd-ctl-wasm-sdk/assets/wasm/{}.wasm", executable);
+            cmd.arg("--dir=."); // Mount current dir
+            cmd.arg(&wasm_file);
+            cmd.arg("--");
+
+            cmd.arg("from_openapi");
+            cmd.arg(&target);
+            for arg in extra_args {
+                cmd.arg(arg);
+            }
+
+            let output = cmd.output().unwrap_or_else(|e| {
+                eprintln!("Failed to execute wasmtime for {}: {}", executable, e);
+                std::process::exit(1);
+            });
+
+            if !output.status.success() {
+                std::io::Write::write_all(&mut std::io::stderr(), &output.stderr).unwrap();
+                std::process::exit(output.status.code().unwrap_or(1));
+            }
+            std::io::Write::write_all(&mut std::io::stdout(), &output.stdout).unwrap();
+            return Ok(());
         }
+        Some(Commands::ToOpenApi {
+            target_language,
+            args: extra_args,
+        }) => {
+            let executable = if target_language.starts_with("cdd-") {
+                target_language.clone()
+            } else {
+                format!("cdd-{}", target_language)
+            };
 
-        let wasm_file = format!("cdd-ctl-wasm-sdk/assets/wasm/{}.wasm", target);
+            if executable == "cdd-java"
+                || executable == "cdd-python"
+                || executable == "cdd-python-all"
+                || executable == "cdd-sh"
+            {
+                eprintln!("Error: The target '{}' is currently unsupported or unavailable for WebAssembly execution.", executable);
+                std::process::exit(2);
+            }
 
-        // Make input accessible to WASI
-        let input_path = std::path::Path::new(&input)
-            .canonicalize()
-            .unwrap_or_else(|_| std::path::PathBuf::from(&input));
-        let input_dir = input_path.parent().unwrap();
-        let filename = input_path.file_name().unwrap().to_string_lossy();
-        cmd.arg(format!("--dir={}::/workspace", input_dir.display()));
+            let mut cmd = Command::new("wasmtime");
 
-        cmd.arg(&wasm_file);
+            // WebAssembly GC for Kotlin
+            if executable == "cdd-kotlin" {
+                cmd.arg("--wasm-features=gc");
+            }
 
-        // Pass arguments to WASM binary
-        cmd.arg("--");
-        cmd.arg("to_docs_json");
-        cmd.arg("-i").arg(format!("/workspace/{}", filename));
+            let wasm_file = format!("cdd-ctl-wasm-sdk/assets/wasm/{}.wasm", executable);
+            cmd.arg("--dir=."); // Mount current dir
+            cmd.arg(&wasm_file);
+            cmd.arg("--");
 
-        if no_imports {
-            cmd.arg("--no-imports");
+            cmd.arg("to_openapi");
+            for arg in extra_args {
+                cmd.arg(arg);
+            }
+
+            let output = cmd.output().unwrap_or_else(|e| {
+                eprintln!("Failed to execute wasmtime for {}: {}", executable, e);
+                std::process::exit(1);
+            });
+
+            if !output.status.success() {
+                std::io::Write::write_all(&mut std::io::stderr(), &output.stderr).unwrap();
+                std::process::exit(output.status.code().unwrap_or(1));
+            }
+            std::io::Write::write_all(&mut std::io::stdout(), &output.stdout).unwrap();
+            return Ok(());
         }
-        if no_wrapping {
-            cmd.arg("--no-wrapping");
-        }
-
-        let output = cmd.output().unwrap_or_else(|e| {
-            eprintln!("Failed to execute wasmtime: {}", e);
-            std::process::exit(1);
-        });
-
-        if !output.status.success() {
-            std::io::Write::write_all(&mut std::io::stderr(), &output.stderr).unwrap();
-            std::process::exit(output.status.code().unwrap_or(1));
-        }
-
-        std::io::Write::write_all(&mut std::io::stdout(), &output.stdout).unwrap();
-        return Ok(());
+        None => {}
     }
 
     let mut app_config = match AppConfig::load(args.config.as_deref()) {
@@ -168,7 +293,10 @@ async fn main() -> std::io::Result<()> {
                 tool.to_string(),
                 cdd_ctl::ProcessConfig {
                     command: Some("wasmtime".to_string()),
-                    args: Some(vec![format!("cdd-ctl-wasm-sdk/assets/wasm/{}.wasm", tool), "serve_json_rpc".to_string()]),
+                    args: Some(vec![
+                        format!("cdd-ctl-wasm-sdk/assets/wasm/{}.wasm", tool),
+                        "serve_json_rpc".to_string(),
+                    ]),
                     external_address: None,
                     max_retries: 5,
                     restart_delay_ms: 2000,

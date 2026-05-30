@@ -57,6 +57,31 @@ enum Commands {
         #[arg(long)]
         no_wrapping: bool,
     },
+
+    /// Generate code from OpenAPI
+    #[command(name = "from_openapi")]
+    FromOpenApi {
+        /// Target language
+        target_language: String,
+
+        /// The generation target (e.g., to_sdk, to_server, to_orm)
+        target: String,
+
+        /// Remaining arguments to pass to the target language CLI
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+
+    /// Generate an OpenAPI specification from source code
+    #[command(name = "to_openapi")]
+    ToOpenApi {
+        /// Target language
+        target_language: String,
+
+        /// Remaining arguments to pass to the target language CLI
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
 }
 
 #[actix_web::main]
@@ -66,42 +91,104 @@ async fn main() -> std::io::Result<()> {
 
     let args = Args::parse();
 
-    if let Some(Commands::ToDocsJson {
-        target_language,
-        input,
-        no_imports,
-        no_wrapping,
-    }) = args.command
-    {
-        let target = if target_language.starts_with("cdd-") {
-            target_language.clone()
-        } else {
-            format!("cdd-{}", target_language)
-        };
+    match args.command {
+        Some(Commands::ToDocsJson {
+            target_language,
+            input,
+            no_imports,
+            no_wrapping,
+        }) => {
+            let target = if target_language.starts_with("cdd-") {
+                target_language.clone()
+            } else {
+                format!("cdd-{}", target_language)
+            };
 
-        let mut cmd = Command::new(&target);
-        cmd.arg("to_docs_json");
-        cmd.arg("-i").arg(&input);
+            let mut cmd = Command::new(&target);
+            cmd.arg("to_docs_json");
+            cmd.arg("-i").arg(&input);
 
-        if no_imports {
-            cmd.arg("--no-imports");
+            if no_imports {
+                cmd.arg("--no-imports");
+            }
+            if no_wrapping {
+                cmd.arg("--no-wrapping");
+            }
+
+            let output = cmd.output().unwrap_or_else(|e| {
+                eprintln!("Failed to execute {}: {}", target, e);
+                std::process::exit(1);
+            });
+
+            if !output.status.success() {
+                std::io::Write::write_all(&mut std::io::stderr(), &output.stderr).unwrap();
+                std::process::exit(output.status.code().unwrap_or(1));
+            }
+
+            std::io::Write::write_all(&mut std::io::stdout(), &output.stdout).unwrap();
+            return Ok(());
         }
-        if no_wrapping {
-            cmd.arg("--no-wrapping");
+        Some(Commands::FromOpenApi {
+            target_language,
+            target,
+            args: extra_args,
+        }) => {
+            let executable = if target_language.starts_with("cdd-") {
+                target_language.clone()
+            } else {
+                format!("cdd-{}", target_language)
+            };
+
+            let mut cmd = Command::new(&executable);
+            cmd.arg("from_openapi");
+            cmd.arg(&target);
+            for arg in extra_args {
+                cmd.arg(arg);
+            }
+
+            let output = cmd.output().unwrap_or_else(|e| {
+                eprintln!("Failed to execute {}: {}", executable, e);
+                std::process::exit(1);
+            });
+
+            if !output.status.success() {
+                std::io::Write::write_all(&mut std::io::stderr(), &output.stderr).unwrap();
+                std::process::exit(output.status.code().unwrap_or(1));
+            }
+
+            std::io::Write::write_all(&mut std::io::stdout(), &output.stdout).unwrap();
+            return Ok(());
         }
+        Some(Commands::ToOpenApi {
+            target_language,
+            args: extra_args,
+        }) => {
+            let executable = if target_language.starts_with("cdd-") {
+                target_language.clone()
+            } else {
+                format!("cdd-{}", target_language)
+            };
 
-        let output = cmd.output().unwrap_or_else(|e| {
-            eprintln!("Failed to execute {}: {}", target, e);
-            std::process::exit(1);
-        });
+            let mut cmd = Command::new(&executable);
+            cmd.arg("to_openapi");
+            for arg in extra_args {
+                cmd.arg(arg);
+            }
 
-        if !output.status.success() {
-            std::io::Write::write_all(&mut std::io::stderr(), &output.stderr).unwrap();
-            std::process::exit(output.status.code().unwrap_or(1));
+            let output = cmd.output().unwrap_or_else(|e| {
+                eprintln!("Failed to execute {}: {}", executable, e);
+                std::process::exit(1);
+            });
+
+            if !output.status.success() {
+                std::io::Write::write_all(&mut std::io::stderr(), &output.stderr).unwrap();
+                std::process::exit(output.status.code().unwrap_or(1));
+            }
+
+            std::io::Write::write_all(&mut std::io::stdout(), &output.stdout).unwrap();
+            return Ok(());
         }
-
-        std::io::Write::write_all(&mut std::io::stdout(), &output.stdout).unwrap();
-        return Ok(());
+        None => {}
     }
 
     let mut app_config = match AppConfig::load(args.config.as_deref()) {
