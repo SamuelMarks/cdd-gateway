@@ -105,15 +105,6 @@ async fn main() -> std::io::Result<()> {
                 format!("cdd-{}", target_language)
             };
 
-            if target == "cdd-java"
-                || target == "cdd-python"
-                || target == "cdd-python-all"
-                || target == "cdd-sh"
-            {
-                eprintln!("Error: The target '{}' is currently unsupported or unavailable for WebAssembly execution.", target);
-                std::process::exit(2);
-            }
-
             let mut cmd = Command::new("wasmtime");
 
             // WebAssembly GC for Kotlin
@@ -169,15 +160,6 @@ async fn main() -> std::io::Result<()> {
                 format!("cdd-{}", target_language)
             };
 
-            if executable == "cdd-java"
-                || executable == "cdd-python"
-                || executable == "cdd-python-all"
-                || executable == "cdd-sh"
-            {
-                eprintln!("Error: The target '{}' is currently unsupported or unavailable for WebAssembly execution.", executable);
-                std::process::exit(2);
-            }
-
             let mut cmd = Command::new("wasmtime");
 
             // WebAssembly GC for Kotlin
@@ -217,15 +199,6 @@ async fn main() -> std::io::Result<()> {
             } else {
                 format!("cdd-{}", target_language)
             };
-
-            if executable == "cdd-java"
-                || executable == "cdd-python"
-                || executable == "cdd-python-all"
-                || executable == "cdd-sh"
-            {
-                eprintln!("Error: The target '{}' is currently unsupported or unavailable for WebAssembly execution.", executable);
-                std::process::exit(2);
-            }
 
             let mut cmd = Command::new("wasmtime");
 

@@ -121,26 +121,6 @@ pub async fn rpc_handler(
             };
 
             let is_wasm = std::env::var("WASM_EXECUTION_MODE").unwrap_or_default() == "1";
-            if is_wasm
-                && matches!(
-                    target.as_str(),
-                    "cdd-java"
-                        | "cdd-python"
-                        | "cdd-python-all"
-                        | "cdd-sh"
-                        | "cdd-cpp"
-                        | "cdd-csharp"
-                        | "cdd-kotlin"
-                        | "cdd-ruby"
-                        | "cdd-ts"
-                )
-            {
-                return HttpResponse::BadRequest().json(RpcResponse::error(
-                    400,
-                    format!("Error: The target '{}' is currently unsupported or unavailable for WebAssembly execution.", target),
-                    req.id.clone(),
-                ));
-            }
 
             let input = params
                 .and_then(|p| p.get("input"))
@@ -515,37 +495,6 @@ mod tests {
 
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
         assert!(resp.error.is_some());
-    }
-
-    #[actix_web::test]
-    async fn test_rpc_handler_to_docs_json_unsupported_wasm() {
-        std::env::set_var("WASM_EXECUTION_MODE", "1");
-        let repo = MockCddRepository::new();
-        let gh = MockGitHubClient::new();
-        let app = test::init_service(
-            App::new()
-                .app_data(web::Data::new(Arc::new(repo) as Arc<dyn CddRepository>))
-                .app_data(web::Data::new(Arc::new(gh) as Arc<dyn GitHubClient>))
-                .configure(configure),
-        )
-        .await;
-
-        let req = test::TestRequest::post()
-            .uri("/rpc")
-            .set_json(RpcRequest {
-                jsonrpc: "2.0".to_string(),
-                method: "to_docs_json".to_string(),
-                params: Some(serde_json::json!({
-                    "target_language": "java",
-                    "input": "spec.json"
-                })),
-                id: Some(serde_json::json!(5)),
-            })
-            .to_request();
-
-        let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
-        assert!(resp.error.is_some());
-        std::env::remove_var("WASM_EXECUTION_MODE");
     }
 
     #[actix_web::test]
@@ -1204,53 +1153,6 @@ mod tests {
 
         let _resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
         // this exercises the non-wasm process::Command success but output unparsable
-    }
-
-    #[actix_web::test]
-    async fn test_rpc_handler_to_docs_json_unsupported_wasm_branches() {
-        let repo = MockCddRepository::new();
-        let gh = MockGitHubClient::new();
-        let app = test::init_service(
-            App::new()
-                .app_data(web::Data::new(
-                    std::sync::Arc::new(repo) as std::sync::Arc<dyn CddRepository>
-                ))
-                .app_data(web::Data::new(std::sync::Arc::new(gh)
-                    as std::sync::Arc<dyn crate::github::client::GitHubClient>))
-                .configure(configure),
-        )
-        .await;
-
-        std::env::set_var("WASM_EXECUTION_MODE", "1");
-
-        for lang in &[
-            "java",
-            "python",
-            "python-all",
-            "sh",
-            "cpp",
-            "csharp",
-            "kotlin",
-            "ruby",
-            "ts",
-        ] {
-            let req = test::TestRequest::post()
-                .uri("/rpc")
-                .set_json(RpcRequest {
-                    jsonrpc: "2.0".to_string(),
-                    method: "to_docs_json".to_string(),
-                    params: Some(serde_json::json!({
-                        "target_language": lang,
-                        "input": "Cargo.toml"
-                    })),
-                    id: Some(serde_json::json!(1)),
-                })
-                .to_request();
-
-            let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
-            assert!(resp.error.is_some());
-        }
-        std::env::remove_var("WASM_EXECUTION_MODE");
     }
 
     #[actix_web::test]
