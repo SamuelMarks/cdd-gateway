@@ -17,3 +17,5 @@ pub use config::AppConfig;
 pub use daemon::{ProcessConfig, ProcessManager};
 pub use db::repository::{CddRepository, PgRepository};
 pub use github::client::{GitHubClient, ReqwestGitHubClient};
+/// WASM execution orchestration
+pub mod wasm_executor;
