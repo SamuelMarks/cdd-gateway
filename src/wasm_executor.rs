@@ -90,6 +90,34 @@ impl NativeWasmExecutor {
         })
     }
 
+    fn run_python(
+        &self,
+        target: &str,
+        _input_dir: Option<&Path>,
+        _args: &[String],
+    ) -> Result<(Vec<u8>, Vec<u8>), WasmError> {
+        // Here we will embed QuickJS to orchestrate the Pyodide WebAssembly module.
+        use rquickjs::{Context, Runtime};
+
+        let rt = Runtime::new().map_err(|e| {
+            WasmError::ExecutionFailed(format!("Failed to create quickjs runtime: {}", e))
+        })?;
+        let _ctx = Context::full(&rt).map_err(|e| {
+            WasmError::ExecutionFailed(format!("Failed to create quickjs context: {}", e))
+        })?;
+
+        // This is a stub implementation representing Phase 2 of PLANNN.md
+        // To be fully implemented with pyodide.mjs injection.
+        let stdout = format!(
+            "Executing {} via Pyodide logic inside rquickjs (STUB)",
+            target
+        )
+        .into_bytes();
+        let stderr = vec![];
+
+        Ok((stdout, stderr))
+    }
+
     fn get_module(&self, wasm_file: &str) -> Result<Module, WasmError> {
         let mut cache = self
             .module_cache
@@ -202,7 +230,11 @@ impl WasmExecutor for NativeWasmExecutor {
         run_args.push("-i".to_string());
         run_args.push(format!("/workspace/{}", filename));
 
-        let (stdout, _) = self.run_wasi(target, input_dir, false, &run_args)?;
+        let (stdout, _) = if target == "cdd-python" || target == "cdd-python-all" {
+            self.run_python(target, input_dir, &run_args)?
+        } else {
+            self.run_wasi(target, input_dir, false, &run_args)?
+        };
         Ok(stdout)
     }
 
@@ -213,6 +245,10 @@ impl WasmExecutor for NativeWasmExecutor {
         mount_current_dir: bool,
         args: &[String],
     ) -> Result<(Vec<u8>, Vec<u8>), WasmError> {
-        self.run_wasi(target, input_dir, mount_current_dir, args)
+        if target == "cdd-python" || target == "cdd-python-all" {
+            self.run_python(target, input_dir, args)
+        } else {
+            self.run_wasi(target, input_dir, mount_current_dir, args)
+        }
     }
 }

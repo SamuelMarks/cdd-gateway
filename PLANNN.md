@@ -26,8 +26,8 @@ Replace the subprocess CLI call with a natively embedded WASM engine, allowing f
 ### Phase 2: Pyodide Implementation (`cdd-python`, `cdd-python-all`)
 Since Pyodide relies heavily on a JavaScript host to manage the CPython WASM binary and `micropip` installations, we must simulate a JS runtime in Rust.
 
-- [ ] Add a lightweight embedded JavaScript engine dependency (e.g., `rquickjs` or `v8`) to `Cargo.toml` to act as the host for Pyodide.
-- [ ] Initialize an `rquickjs::Context` inside the `cdd-python` execution flow.
+- [x] Add a lightweight embedded JavaScript engine dependency (e.g., `rquickjs` or `v8`) to `Cargo.toml` to act as the host for Pyodide.
+- [x] Initialize an `rquickjs::Context` inside the `cdd-python` execution flow.
 - [ ] Inject the Pyodide WebAssembly module and JS glue code (`pyodide.mjs`) into the embedded JS context.
 - [ ] Write a JS wrapper script inside the Rust binary that evaluates the same `micropip.install(["pydantic<2.0", "libcst", "urllib3"])` logic used in the UI's `wasm-worker.worker.ts`.
 - [ ] Implement a bridge between `rquickjs`'s Pyodide virtual filesystem (`pyodide.FS`) and Rust's native memory so the `spec.yaml` can be mounted in memory.
@@ -38,30 +38,30 @@ Since Pyodide relies heavily on a JavaScript host to manage the CPython WASM bin
 ### Phase 3: GraalVM Implementation (`cdd-java`)
 GraalVM compiles Java to WASM but emits specific Javascript interop requirements that must be explicitly mocked in the `wasmtime::Linker`.
 
-- [ ] Create a custom `GraalVmLinker` struct wrapping `wasmtime::Linker` to register the specific module imports GraalVM expects.
-- [ ] Implement memory read/write helper functions (`read_string`, `write_string`) to translate WASM memory pointers into Rust `String` objects safely.
-- [ ] Implement a simulated JS object heap (`HashMap<u32, Box<dyn Any>>`) in the `wasmtime::Store` to mock the JS object references GraalVM passes back and forth.
-- [ ] Mock the `interop` namespace: Link `stdoutWriter.printChars` and `stderrWriter.printChars` to route directly into our Rust captured log buffers.
-- [ ] Mock the `interop` namespace: Link `Date.now` and `performance.now`, returning accurate Unix timestamps via Rust's `std::time::SystemTime`.
-- [ ] Mock the `interop` namespace: Link `runtime.setExitCode` to capture the internal GraalVM exit status for validation.
-- [ ] Mock the `jsbody` namespace (Core Java<->JS translation): Link `_JSObject.stringValue___String` and `_JSNumber.javaDouble___Double`.
-- [ ] Mock the `jsbody` namespace: Link `_JSConversion.extractJavaScriptString___String_Object` to parse Java strings natively.
-- [ ] Mock the `compat` namespace: Link `f64rem`, `f64log`, `f64log10`, and `f64pow` by delegating directly to Rust's native `f64` mathematical methods.
-- [ ] Handle the GraalVM instantiation phase accurately, ensuring `wasi.initialize(instance)` is called and the explicit `from_openapi` export is executed instead of relying solely on `_start`.
+- [x] Create a custom `GraalVmLinker` struct wrapping `wasmtime::Linker` to register the specific module imports GraalVM expects.
+- [x] Implement memory read/write helper functions (`read_string`, `write_string`) to translate WASM memory pointers into Rust `String` objects safely.
+- [x] Implement a simulated JS object heap (`HashMap<u32, Box<dyn Any>>`) in the `wasmtime::Store` to mock the JS object references GraalVM passes back and forth.
+- [x] Mock the `interop` namespace: Link `stdoutWriter.printChars` and `stderrWriter.printChars` to route directly into our Rust captured log buffers.
+- [x] Mock the `interop` namespace: Link `Date.now` and `performance.now`, returning accurate Unix timestamps via Rust's `std::time::SystemTime`.
+- [x] Mock the `interop` namespace: Link `runtime.setExitCode` to capture the internal GraalVM exit status for validation.
+- [x] Mock the `jsbody` namespace (Core Java<->JS translation): Link `_JSObject.stringValue___String` and `_JSNumber.javaDouble___Double`.
+- [x] Mock the `jsbody` namespace: Link `_JSConversion.extractJavaScriptString___String_Object` to parse Java strings natively.
+- [x] Mock the `compat` namespace: Link `f64rem`, `f64log`, `f64log10`, and `f64pow` by delegating directly to Rust's native `f64` mathematical methods.
+- [x] Handle the GraalVM instantiation phase accurately, ensuring `wasi.initialize(instance)` is called and the explicit `from_openapi` export is executed instead of relying solely on `_start`.
 
 ### Phase 4: Shell Implementation (`cdd-sh`)
 Shell scripts do not compile natively to WASM. We must orchestrate a WASM-compatible shell interpreter to evaluate the `.sh` scripts.
 
-- [ ] Identify and bundle a minimal `dash` or `busybox` WASI binary to act as the interpreter.
-- [ ] Configure the `wasmtime-wasi` context to mount the `cdd-sh` script payload into a virtual `/bin/cdd-sh` path.
-- [ ] Configure the WASI entrypoint parameters so that `argv[0]` points to the WASI-shell interpreter and `argv[1]` points to the script path.
+- [x] Identify and bundle a minimal `dash` or `busybox` WASI binary to act as the interpreter.
+- [x] Configure the `wasmtime-wasi` context to mount the `cdd-sh` script payload into a virtual `/bin/cdd-sh` path.
+- [x] Configure the WASI entrypoint parameters so that `argv[0]` points to the WASI-shell interpreter and `argv[1]` points to the script path.
 - [ ] Map the in-memory OpenAPI specification (`spec.yaml`) directly into the WASI context's stdin descriptor, matching standard bash piping workflows.
 - [ ] Extract the generated output artifacts from the WASI virtual `/out` directory back to the Rust host.
 
 ### Phase 5: Refactoring, Testing & CI/CD
 Ensure stability, performance, and correctness of the new native integrations.
 
-- [ ] Re-enable the blocked targets (`cdd-java`, `cdd-python`, `cdd-python-all`, and `cdd-sh`) in `src/api/rpc.rs` as natively supported execution targets.
+- [x] Re-enable the blocked targets (`cdd-java`, `cdd-python`, `cdd-python-all`, and `cdd-sh`) in `src/api/rpc.rs` as natively supported execution targets.
 - [ ] Write integration test `test_rpc_handler_to_docs_json_native_cdd_java` to explicitly test the complex GraalVM linkage logic.
 - [ ] Write integration test `test_rpc_handler_to_docs_json_native_cdd_python` to verify the Pyodide/rquickjs engine initialization.
 - [ ] Implement robust error handling by removing `.unwrap()` calls introduced during the rapid mocking phase, returning typed `actix_web::HttpResponse::BadRequest` on failure.
