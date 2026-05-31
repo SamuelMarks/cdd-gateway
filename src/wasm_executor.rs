@@ -140,8 +140,11 @@ impl NativeWasmExecutor {
         input_dir: Option<&Path>,
         mount_current_dir: bool,
         args: &[String],
+        wasm_file_override: Option<&str>,
     ) -> Result<(Vec<u8>, Vec<u8>), WasmError> {
-        let wasm_file = format!("cdd-ctl-wasm-sdk/assets/wasm/{}.wasm", target);
+        let wasm_file = wasm_file_override
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| format!("cdd-ctl-wasm-sdk/assets/wasm/{}.wasm", target));
         let module = self.get_module(&wasm_file)?;
 
         let mut linker: Linker<WasiP1Ctx> = Linker::new(&self.engine);
@@ -232,8 +235,12 @@ impl WasmExecutor for NativeWasmExecutor {
 
         let (stdout, _) = if target == "cdd-python" || target == "cdd-python-all" {
             self.run_python(target, input_dir, &run_args)?
+        } else if target == "cdd-sh" {
+            let mut sh_args = vec!["/workspace/script.sh".to_string()];
+            sh_args.extend(run_args.into_iter());
+            self.run_wasi("dash", input_dir, false, &sh_args, Some("cdd-ctl-wasm-sdk/assets/wasm/dash.wasm"))?
         } else {
-            self.run_wasi(target, input_dir, false, &run_args)?
+            self.run_wasi(target, input_dir, false, &run_args, None)?
         };
         Ok(stdout)
     }
@@ -247,8 +254,13 @@ impl WasmExecutor for NativeWasmExecutor {
     ) -> Result<(Vec<u8>, Vec<u8>), WasmError> {
         if target == "cdd-python" || target == "cdd-python-all" {
             self.run_python(target, input_dir, args)
+        } else if target == "cdd-sh" {
+            let mut sh_args = vec!["/workspace/script.sh".to_string()];
+            sh_args.extend(args.iter().cloned());
+            self.run_wasi("dash", input_dir, mount_current_dir, &sh_args, Some("cdd-ctl-wasm-sdk/assets/wasm/dash.wasm"))
         } else {
-            self.run_wasi(target, input_dir, mount_current_dir, args)
+            self.run_wasi(target, input_dir, mount_current_dir, args, None)
         }
-    }
+}
+
 }

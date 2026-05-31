@@ -28,12 +28,12 @@ Since Pyodide relies heavily on a JavaScript host to manage the CPython WASM bin
 
 - [x] Add a lightweight embedded JavaScript engine dependency (e.g., `rquickjs` or `v8`) to `Cargo.toml` to act as the host for Pyodide.
 - [x] Initialize an `rquickjs::Context` inside the `cdd-python` execution flow.
-- [ ] Inject the Pyodide WebAssembly module and JS glue code (`pyodide.mjs`) into the embedded JS context.
-- [ ] Write a JS wrapper script inside the Rust binary that evaluates the same `micropip.install(["pydantic<2.0", "libcst", "urllib3"])` logic used in the UI's `wasm-worker.worker.ts`.
-- [ ] Implement a bridge between `rquickjs`'s Pyodide virtual filesystem (`pyodide.FS`) and Rust's native memory so the `spec.yaml` can be mounted in memory.
-- [ ] Handle asynchronous JS execution (`runPythonAsync`) within Rust's Tokio runtime, ensuring it does not block the main thread.
-- [ ] Extract the generated SDK files by recursively reading the Pyodide `/out` directory via `pyodide.FS.readdir` and piping the byte arrays back to Rust.
-- [ ] Catch Pyodide execution exceptions and gracefully extract Python traceback strings into detailed Rust `anyhow::Error` types for the API response.
+- [x] Inject the Pyodide WebAssembly module and JS glue code (`pyodide.mjs`) into the embedded JS context.
+- [x] Write a JS wrapper script inside the Rust binary that evaluates the same `micropip.install(["pydantic<2.0", "libcst", "urllib3"])` logic used in the UI's `wasm-worker.worker.ts`.
+- [x] Implement a bridge between `rquickjs`'s Pyodide virtual filesystem (`pyodide.FS`) and Rust's native memory so the `spec.yaml` can be mounted in memory.
+- [x] Handle asynchronous JS execution (`runPythonAsync`) within Rust's Tokio runtime, ensuring it does not block the main thread.
+- [x] Extract the generated SDK files by recursively reading the Pyodide `/out` directory via `pyodide.FS.readdir` and piping the byte arrays back to Rust.
+- [x] Catch Pyodide execution exceptions and gracefully extract Python traceback strings into detailed Rust `anyhow::Error` types for the API response.
 
 ### Phase 3: GraalVM Implementation (`cdd-java`)
 GraalVM compiles Java to WASM but emits specific Javascript interop requirements that must be explicitly mocked in the `wasmtime::Linker`.
@@ -55,15 +55,15 @@ Shell scripts do not compile natively to WASM. We must orchestrate a WASM-compat
 - [x] Identify and bundle a minimal `dash` or `busybox` WASI binary to act as the interpreter.
 - [x] Configure the `wasmtime-wasi` context to mount the `cdd-sh` script payload into a virtual `/bin/cdd-sh` path.
 - [x] Configure the WASI entrypoint parameters so that `argv[0]` points to the WASI-shell interpreter and `argv[1]` points to the script path.
-- [ ] Map the in-memory OpenAPI specification (`spec.yaml`) directly into the WASI context's stdin descriptor, matching standard bash piping workflows.
-- [ ] Extract the generated output artifacts from the WASI virtual `/out` directory back to the Rust host.
+- [x] Map the in-memory OpenAPI specification (`spec.yaml`) directly into the WASI context's stdin descriptor, matching standard bash piping workflows.
+- [x] Extract the generated output artifacts from the WASI virtual `/out` directory back to the Rust host.
 
 ### Phase 5: Refactoring, Testing & CI/CD
 Ensure stability, performance, and correctness of the new native integrations.
 
 - [x] Re-enable the blocked targets (`cdd-java`, `cdd-python`, `cdd-python-all`, and `cdd-sh`) in `src/api/rpc.rs` as natively supported execution targets.
-- [ ] Write integration test `test_rpc_handler_to_docs_json_native_cdd_java` to explicitly test the complex GraalVM linkage logic.
-- [ ] Write integration test `test_rpc_handler_to_docs_json_native_cdd_python` to verify the Pyodide/rquickjs engine initialization.
-- [ ] Implement robust error handling by removing `.unwrap()` calls introduced during the rapid mocking phase, returning typed `actix_web::HttpResponse::BadRequest` on failure.
-- [ ] Benchmark the overhead of embedding `wasmtime` and `rquickjs` against the previous CLI subprocess approach to ensure latency remains acceptable.
-- [ ] Update `.github/workflows/ci.yml` to actively cache the Cargo registry and build artifacts, as adding `v8`/`rquickjs` and `wasmtime` will significantly increase the project's compile time.
+- [x] Write integration test `test_rpc_handler_to_docs_json_native_cdd_java` to explicitly test the complex GraalVM linkage logic.
+- [x] Write integration test `test_rpc_handler_to_docs_json_native_cdd_python` to verify the Pyodide/rquickjs engine initialization.
+- [x] Implement robust error handling by removing `.unwrap()` calls introduced during the rapid mocking phase, returning typed `actix_web::HttpResponse::BadRequest` on failure.
+- [x] Benchmark the overhead of embedding `wasmtime` and `rquickjs` against the previous CLI subprocess approach to ensure latency remains acceptable.
+- [x] Update `.github/workflows/ci.yml` to actively cache the Cargo registry and build artifacts, as adding `v8`/`rquickjs` and `wasmtime` will significantly increase the project's compile time.
