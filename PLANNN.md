@@ -52,16 +52,16 @@ GraalVM compiles Java to WASM but emits specific Javascript interop requirements
 ### Phase 4: Shell Implementation (`cdd-sh`)
 Shell scripts do not compile natively to WASM. We must orchestrate a WASM-compatible shell interpreter to evaluate the `.sh` scripts.
 
-- [ ] Identify and bundle a minimal `dash` or `busybox` WASI binary to act as the interpreter.
-- [ ] Configure the `wasmtime-wasi` context to mount the `cdd-sh` script payload into a virtual `/bin/cdd-sh` path.
-- [ ] Configure the WASI entrypoint parameters so that `argv[0]` points to the WASI-shell interpreter and `argv[1]` points to the script path.
+- [x] Identify and bundle a minimal `dash` or `busybox` WASI binary to act as the interpreter.
+- [x] Configure the `wasmtime-wasi` context to mount the `cdd-sh` script payload into a virtual `/bin/cdd-sh` path.
+- [x] Configure the WASI entrypoint parameters so that `argv[0]` points to the WASI-shell interpreter and `argv[1]` points to the script path.
 - [ ] Map the in-memory OpenAPI specification (`spec.yaml`) directly into the WASI context's stdin descriptor, matching standard bash piping workflows.
 - [ ] Extract the generated output artifacts from the WASI virtual `/out` directory back to the Rust host.
 
 ### Phase 5: Refactoring, Testing & CI/CD
 Ensure stability, performance, and correctness of the new native integrations.
 
-- [ ] Re-enable the blocked targets (`cdd-java`, `cdd-python`, `cdd-python-all`, and `cdd-sh`) in `src/api/rpc.rs` as natively supported execution targets.
+- [x] Re-enable the blocked targets (`cdd-java`, `cdd-python`, `cdd-python-all`, and `cdd-sh`) in `src/api/rpc.rs` as natively supported execution targets.
 - [ ] Write integration test `test_rpc_handler_to_docs_json_native_cdd_java` to explicitly test the complex GraalVM linkage logic.
 - [ ] Write integration test `test_rpc_handler_to_docs_json_native_cdd_python` to verify the Pyodide/rquickjs engine initialization.
 - [ ] Implement robust error handling by removing `.unwrap()` calls introduced during the rapid mocking phase, returning typed `actix_web::HttpResponse::BadRequest` on failure.
