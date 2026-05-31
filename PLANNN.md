@@ -14,14 +14,14 @@ Our objective is to completely replace the `wasmtime` CLI subprocess with an emb
 ### Phase 1: Native `wasmtime` Embedding & Architecture
 Replace the subprocess CLI call with a natively embedded WASM engine, allowing fine-grained control over execution environments.
 
-- [ ] Add `wasmtime`, `wasmtime-wasi`, and `wasi-common` as direct dependencies in `cdd-ctl`'s `Cargo.toml`.
-- [ ] Remove the `std::process::Command::new("wasmtime")` usage across `src/bin/cdd-ctl-wasm.rs` and `src/api/rpc.rs`.
-- [ ] Define a `WasmExecutor` trait to standardize execution: `fn execute(&self, target: &str, input: &str, args: &[String]) -> Result<Vec<GeneratedFile>>`.
-- [ ] Implement `wasmtime::Config` instantiation, explicitly enabling required WASM proposals (e.g., `--wasm-features=gc` for `cdd-kotlin`).
-- [ ] Implement `wasmtime::Engine` and `wasmtime::Module` caching (using `Module::serialize`/`deserialize`) to prevent recompiling the WASM payloads on every RPC request, ensuring fast API response times.
-- [ ] Create a `WasiContextBuilder` factory to standardize mounting the virtual filesystem (e.g., `/workspace`, `/out`) across all language targets.
-- [ ] Inject standard environment variables (`CDD_COMMAND`, `INPUT`, `OUTPUT_DIR`) programmatically into the WASI context.
-- [ ] Set up in-memory piped buffers for stdout/stderr to cleanly capture execution logs without relying on OS-level file descriptors.
+- [x] Add `wasmtime`, `wasmtime-wasi`, and `wasi-common` as direct dependencies in `cdd-ctl`'s `Cargo.toml`.
+- [x] Remove the `std::process::Command::new("wasmtime")` usage across `src/bin/cdd-ctl-wasm.rs` and `src/api/rpc.rs`.
+- [x] Define a `WasmExecutor` trait to standardize execution: `fn execute(&self, target: &str, input: &str, args: &[String]) -> Result<Vec<GeneratedFile>>`.
+- [x] Implement `wasmtime::Config` instantiation, explicitly enabling required WASM proposals (e.g., `--wasm-features=gc` for `cdd-kotlin`).
+- [x] Implement `wasmtime::Engine` and `wasmtime::Module` caching (using `Module::serialize`/`deserialize`) to prevent recompiling the WASM payloads on every RPC request, ensuring fast API response times.
+- [x] Create a `WasiContextBuilder` factory to standardize mounting the virtual filesystem (e.g., `/workspace`, `/out`) across all language targets.
+- [x] Inject standard environment variables (`CDD_COMMAND`, `INPUT`, `OUTPUT_DIR`) programmatically into the WASI context.
+- [x] Set up in-memory piped buffers for stdout/stderr to cleanly capture execution logs without relying on OS-level file descriptors.
 
 ### Phase 2: Pyodide Implementation (`cdd-python`, `cdd-python-all`)
 Since Pyodide relies heavily on a JavaScript host to manage the CPython WASM binary and `micropip` installations, we must simulate a JS runtime in Rust.

@@ -118,9 +118,9 @@ async fn main() -> std::io::Result<()> {
             let input_path = std::path::Path::new(&input)
                 .canonicalize()
                 .unwrap_or_else(|_| std::path::PathBuf::from(&input));
-            let input_dir = input_path.parent().unwrap();
-            let filename = input_path.file_name().unwrap().to_string_lossy();
-            cmd.arg(format!("--dir={}::/workspace", input_dir.display()));
+            let input_dir = input_path.parent();
+            let filename = input_path.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default();
+            if let Some(d) = input_dir { cmd.arg(format!("--dir={}::/workspace", d.display())); } else { cmd.arg("--dir=.::/workspace"); }
 
             cmd.arg(&wasm_file);
 

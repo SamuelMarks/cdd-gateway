@@ -1,13 +1,13 @@
+use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
-use once_cell::sync::Lazy;
 
 use wasmtime::{Config, Engine, Linker, Module, Store};
 use wasmtime_wasi::p1::WasiP1Ctx;
 use wasmtime_wasi::p2::pipe::MemoryOutputPipe;
-use wasmtime_wasi::{WasiCtxBuilder, DirPerms, FilePerms};
+use wasmtime_wasi::{DirPerms, FilePerms, WasiCtxBuilder};
 
 /// A generated file output from a WASM execution.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -25,12 +25,12 @@ pub enum WasmError {
     #[display("WASM execution failed: {_0}")]
     #[error(ignore)]
     ExecutionFailed(String),
-    
+
     /// Loading the WASM module from disk or instantiating it failed.
     #[display("WASM module load failed: {_0}")]
     #[error(ignore)]
     LoadFailed(String),
-    
+
     /// The provided configuration for WASI was invalid.
     #[display("Invalid configuration: {_0}")]
     #[error(ignore)]
@@ -40,11 +40,27 @@ pub enum WasmError {
 /// A standard trait for executing SDK generators.
 pub trait WasmExecutor: Send + Sync {
     /// Executes the target returning a list of generated files from the `/out` directory.
-    fn execute(&self, target: &str, input: &str, args: &[String]) -> Result<Vec<GeneratedFile>, WasmError>;
+    fn execute(
+        &self,
+        target: &str,
+        input: &str,
+        args: &[String],
+    ) -> Result<Vec<GeneratedFile>, WasmError>;
     /// Executes the target returning the raw stdout bytes (typically for JSON outputs).
-    fn execute_to_stdout(&self, target: &str, input: &str, args: &[String]) -> Result<Vec<u8>, WasmError>;
+    fn execute_to_stdout(
+        &self,
+        target: &str,
+        input: &str,
+        args: &[String],
+    ) -> Result<Vec<u8>, WasmError>;
     /// Executes a raw WASI command for the CLI, returning (stdout, stderr).
-    fn execute_cli(&self, target: &str, input_dir: Option<&Path>, mount_current_dir: bool, args: &[String]) -> Result<(Vec<u8>, Vec<u8>), WasmError>;
+    fn execute_cli(
+        &self,
+        target: &str,
+        input_dir: Option<&Path>,
+        mount_current_dir: bool,
+        args: &[String],
+    ) -> Result<(Vec<u8>, Vec<u8>), WasmError>;
 }
 
 /// Native implementation using the `wasmtime` embedded engine.
@@ -54,9 +70,8 @@ pub struct NativeWasmExecutor {
 }
 
 /// A globally shared instance of the native WASM executor.
-pub static WASM_EXECUTOR: Lazy<NativeWasmExecutor> = Lazy::new(|| {
-    NativeWasmExecutor::new().expect("Failed to initialize WASM engine")
-});
+pub static WASM_EXECUTOR: Lazy<NativeWasmExecutor> =
+    Lazy::new(|| NativeWasmExecutor::new().expect("Failed to initialize WASM engine"));
 
 impl NativeWasmExecutor {
     /// Initializes a new embedded `wasmtime` engine.
@@ -76,19 +91,28 @@ impl NativeWasmExecutor {
     }
 
     fn get_module(&self, wasm_file: &str) -> Result<Module, WasmError> {
-        let mut cache = self.module_cache.lock().map_err(|e| WasmError::ExecutionFailed(format!("Mutex lock failed: {}", e)))?;
+        let mut cache = self
+            .module_cache
+            .lock()
+            .map_err(|e| WasmError::ExecutionFailed(format!("Mutex lock failed: {}", e)))?;
         if let Some(module) = cache.get(wasm_file) {
             return Ok(module.clone());
         }
 
         let module = Module::from_file(&self.engine, wasm_file)
             .map_err(|e| WasmError::LoadFailed(format!("Failed to load {}: {}", wasm_file, e)))?;
-        
+
         cache.insert(wasm_file.to_string(), module.clone());
         Ok(module)
     }
 
-    fn run_wasi(&self, target: &str, input_dir: Option<&Path>, mount_current_dir: bool, args: &[String]) -> Result<(Vec<u8>, Vec<u8>), WasmError> {
+    fn run_wasi(
+        &self,
+        target: &str,
+        input_dir: Option<&Path>,
+        mount_current_dir: bool,
+        args: &[String],
+    ) -> Result<(Vec<u8>, Vec<u8>), WasmError> {
         let wasm_file = format!("cdd-ctl-wasm-sdk/assets/wasm/{}.wasm", target);
         let module = self.get_module(&wasm_file)?;
 
@@ -100,16 +124,18 @@ impl NativeWasmExecutor {
         let stderr = MemoryOutputPipe::new(1024 * 1024 * 10);
 
         let mut builder = WasiCtxBuilder::new();
-        builder
-            .stdout(stdout.clone())
-            .stderr(stderr.clone());
+        builder.stdout(stdout.clone()).stderr(stderr.clone());
 
         if let Some(dir) = input_dir {
-            builder.preopened_dir(dir, "/workspace", DirPerms::all(), FilePerms::all())
-                .map_err(|e| WasmError::InvalidConfig(format!("Failed to mount /workspace: {}", e)))?;
+            builder
+                .preopened_dir(dir, "/workspace", DirPerms::all(), FilePerms::all())
+                .map_err(|e| {
+                    WasmError::InvalidConfig(format!("Failed to mount /workspace: {}", e))
+                })?;
         }
         if mount_current_dir {
-            builder.preopened_dir(".", ".", DirPerms::all(), FilePerms::all())
+            builder
+                .preopened_dir(".", ".", DirPerms::all(), FilePerms::all())
                 .map_err(|e| WasmError::InvalidConfig(format!("Failed to mount .: {}", e)))?;
         }
 
@@ -120,10 +146,12 @@ impl NativeWasmExecutor {
         let ctx = builder.build_p1();
         let mut store = Store::new(&self.engine, ctx);
 
-        let instance = linker.instantiate(&mut store, &module)
-            .map_err(|e| WasmError::ExecutionFailed(format!("Failed to instantiate module: {}", e)))?;
+        let instance = linker.instantiate(&mut store, &module).map_err(|e| {
+            WasmError::ExecutionFailed(format!("Failed to instantiate module: {}", e))
+        })?;
 
-        let start = instance.get_typed_func::<(), ()>(&mut store, "_start")
+        let start = instance
+            .get_typed_func::<(), ()>(&mut store, "_start")
             .map_err(|e| WasmError::ExecutionFailed(format!("No _start function: {}", e)))?;
 
         if let Err(err) = start.call(&mut store, ()) {
@@ -131,7 +159,10 @@ impl NativeWasmExecutor {
             if !msg.contains("exit status 0") {
                 let stderr_bytes = stderr.contents();
                 let stderr_str = String::from_utf8_lossy(&stderr_bytes);
-                return Err(WasmError::ExecutionFailed(format!("Execution failed: {}\nStderr: {}", err, stderr_str)));
+                return Err(WasmError::ExecutionFailed(format!(
+                    "Execution failed: {}\nStderr: {}",
+                    err, stderr_str
+                )));
             }
         }
 
@@ -140,16 +171,29 @@ impl NativeWasmExecutor {
 }
 
 impl WasmExecutor for NativeWasmExecutor {
-    fn execute(&self, _target: &str, _input: &str, _args: &[String]) -> Result<Vec<GeneratedFile>, WasmError> {
+    fn execute(
+        &self,
+        _target: &str,
+        _input: &str,
+        _args: &[String],
+    ) -> Result<Vec<GeneratedFile>, WasmError> {
         Ok(vec![])
     }
 
-    fn execute_to_stdout(&self, target: &str, input: &str, args: &[String]) -> Result<Vec<u8>, WasmError> {
+    fn execute_to_stdout(
+        &self,
+        target: &str,
+        input: &str,
+        args: &[String],
+    ) -> Result<Vec<u8>, WasmError> {
         let input_path = std::path::Path::new(input)
             .canonicalize()
             .unwrap_or_else(|_| std::path::PathBuf::from(input));
         let input_dir = input_path.parent();
-        let filename = input_path.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default();
+        let filename = input_path
+            .file_name()
+            .map(|f| f.to_string_lossy().to_string())
+            .unwrap_or_default();
 
         let mut run_args = vec![];
         for a in args {
@@ -162,7 +206,13 @@ impl WasmExecutor for NativeWasmExecutor {
         Ok(stdout)
     }
 
-    fn execute_cli(&self, target: &str, input_dir: Option<&Path>, mount_current_dir: bool, args: &[String]) -> Result<(Vec<u8>, Vec<u8>), WasmError> {
+    fn execute_cli(
+        &self,
+        target: &str,
+        input_dir: Option<&Path>,
+        mount_current_dir: bool,
+        args: &[String],
+    ) -> Result<(Vec<u8>, Vec<u8>), WasmError> {
         self.run_wasi(target, input_dir, mount_current_dir, args)
     }
 }
