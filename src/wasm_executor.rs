@@ -238,7 +238,13 @@ impl WasmExecutor for NativeWasmExecutor {
         } else if target == "cdd-sh" {
             let mut sh_args = vec!["/workspace/script.sh".to_string()];
             sh_args.extend(run_args.into_iter());
-            self.run_wasi("dash", input_dir, false, &sh_args, Some("cdd-ctl-wasm-sdk/assets/wasm/dash.wasm"))?
+            self.run_wasi(
+                "dash",
+                input_dir,
+                false,
+                &sh_args,
+                Some("cdd-ctl-wasm-sdk/assets/wasm/dash.wasm"),
+            )?
         } else {
             self.run_wasi(target, input_dir, false, &run_args, None)?
         };
@@ -257,10 +263,15 @@ impl WasmExecutor for NativeWasmExecutor {
         } else if target == "cdd-sh" {
             let mut sh_args = vec!["/workspace/script.sh".to_string()];
             sh_args.extend(args.iter().cloned());
-            self.run_wasi("dash", input_dir, mount_current_dir, &sh_args, Some("cdd-ctl-wasm-sdk/assets/wasm/dash.wasm"))
+            self.run_wasi(
+                "dash",
+                input_dir,
+                mount_current_dir,
+                &sh_args,
+                Some("cdd-ctl-wasm-sdk/assets/wasm/dash.wasm"),
+            )
         } else {
             self.run_wasi(target, input_dir, mount_current_dir, args, None)
         }
-}
-
+    }
 }

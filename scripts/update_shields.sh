@@ -8,7 +8,7 @@ then
 fi
 
 echo "Running tests and calculating coverage..."
-COVERAGE=$(cargo tarpaulin --engine llvm --timeout 120 --out Lcov -- --skip db:: 2>&1 | grep -oE "coverage: [0-9.]+" | awk '{print $2}')
+COVERAGE=$(DATABASE_URL=postgres://postgres:password@localhost/cdd cargo tarpaulin --engine llvm --timeout 120 --out Lcov 2>&1 | grep -oE "coverage: [0-9.]+" | awk '{print $2}')
 if [ -z "$COVERAGE" ]; then
     COVERAGE="0"
 fi
