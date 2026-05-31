@@ -14,20 +14,20 @@ Our objective is to completely replace the `wasmtime` CLI subprocess with an emb
 ### Phase 1: Native `wasmtime` Embedding & Architecture
 Replace the subprocess CLI call with a natively embedded WASM engine, allowing fine-grained control over execution environments.
 
-- [ ] Add `wasmtime`, `wasmtime-wasi`, and `wasi-common` as direct dependencies in `cdd-ctl`'s `Cargo.toml`.
-- [ ] Remove the `std::process::Command::new("wasmtime")` usage across `src/bin/cdd-ctl-wasm.rs` and `src/api/rpc.rs`.
-- [ ] Define a `WasmExecutor` trait to standardize execution: `fn execute(&self, target: &str, input: &str, args: &[String]) -> Result<Vec<GeneratedFile>>`.
-- [ ] Implement `wasmtime::Config` instantiation, explicitly enabling required WASM proposals (e.g., `--wasm-features=gc` for `cdd-kotlin`).
-- [ ] Implement `wasmtime::Engine` and `wasmtime::Module` caching (using `Module::serialize`/`deserialize`) to prevent recompiling the WASM payloads on every RPC request, ensuring fast API response times.
-- [ ] Create a `WasiContextBuilder` factory to standardize mounting the virtual filesystem (e.g., `/workspace`, `/out`) across all language targets.
-- [ ] Inject standard environment variables (`CDD_COMMAND`, `INPUT`, `OUTPUT_DIR`) programmatically into the WASI context.
-- [ ] Set up in-memory piped buffers for stdout/stderr to cleanly capture execution logs without relying on OS-level file descriptors.
+- [x] Add `wasmtime`, `wasmtime-wasi`, and `wasi-common` as direct dependencies in `cdd-ctl`'s `Cargo.toml`.
+- [x] Remove the `std::process::Command::new("wasmtime")` usage across `src/bin/cdd-ctl-wasm.rs` and `src/api/rpc.rs`.
+- [x] Define a `WasmExecutor` trait to standardize execution: `fn execute(&self, target: &str, input: &str, args: &[String]) -> Result<Vec<GeneratedFile>>`.
+- [x] Implement `wasmtime::Config` instantiation, explicitly enabling required WASM proposals (e.g., `--wasm-features=gc` for `cdd-kotlin`).
+- [x] Implement `wasmtime::Engine` and `wasmtime::Module` caching (using `Module::serialize`/`deserialize`) to prevent recompiling the WASM payloads on every RPC request, ensuring fast API response times.
+- [x] Create a `WasiContextBuilder` factory to standardize mounting the virtual filesystem (e.g., `/workspace`, `/out`) across all language targets.
+- [x] Inject standard environment variables (`CDD_COMMAND`, `INPUT`, `OUTPUT_DIR`) programmatically into the WASI context.
+- [x] Set up in-memory piped buffers for stdout/stderr to cleanly capture execution logs without relying on OS-level file descriptors.
 
 ### Phase 2: Pyodide Implementation (`cdd-python`, `cdd-python-all`)
 Since Pyodide relies heavily on a JavaScript host to manage the CPython WASM binary and `micropip` installations, we must simulate a JS runtime in Rust.
 
-- [ ] Add a lightweight embedded JavaScript engine dependency (e.g., `rquickjs` or `v8`) to `Cargo.toml` to act as the host for Pyodide.
-- [ ] Initialize an `rquickjs::Context` inside the `cdd-python` execution flow.
+- [x] Add a lightweight embedded JavaScript engine dependency (e.g., `rquickjs` or `v8`) to `Cargo.toml` to act as the host for Pyodide.
+- [x] Initialize an `rquickjs::Context` inside the `cdd-python` execution flow.
 - [ ] Inject the Pyodide WebAssembly module and JS glue code (`pyodide.mjs`) into the embedded JS context.
 - [ ] Write a JS wrapper script inside the Rust binary that evaluates the same `micropip.install(["pydantic<2.0", "libcst", "urllib3"])` logic used in the UI's `wasm-worker.worker.ts`.
 - [ ] Implement a bridge between `rquickjs`'s Pyodide virtual filesystem (`pyodide.FS`) and Rust's native memory so the `spec.yaml` can be mounted in memory.
@@ -38,16 +38,16 @@ Since Pyodide relies heavily on a JavaScript host to manage the CPython WASM bin
 ### Phase 3: GraalVM Implementation (`cdd-java`)
 GraalVM compiles Java to WASM but emits specific Javascript interop requirements that must be explicitly mocked in the `wasmtime::Linker`.
 
-- [ ] Create a custom `GraalVmLinker` struct wrapping `wasmtime::Linker` to register the specific module imports GraalVM expects.
-- [ ] Implement memory read/write helper functions (`read_string`, `write_string`) to translate WASM memory pointers into Rust `String` objects safely.
-- [ ] Implement a simulated JS object heap (`HashMap<u32, Box<dyn Any>>`) in the `wasmtime::Store` to mock the JS object references GraalVM passes back and forth.
-- [ ] Mock the `interop` namespace: Link `stdoutWriter.printChars` and `stderrWriter.printChars` to route directly into our Rust captured log buffers.
-- [ ] Mock the `interop` namespace: Link `Date.now` and `performance.now`, returning accurate Unix timestamps via Rust's `std::time::SystemTime`.
-- [ ] Mock the `interop` namespace: Link `runtime.setExitCode` to capture the internal GraalVM exit status for validation.
-- [ ] Mock the `jsbody` namespace (Core Java<->JS translation): Link `_JSObject.stringValue___String` and `_JSNumber.javaDouble___Double`.
-- [ ] Mock the `jsbody` namespace: Link `_JSConversion.extractJavaScriptString___String_Object` to parse Java strings natively.
-- [ ] Mock the `compat` namespace: Link `f64rem`, `f64log`, `f64log10`, and `f64pow` by delegating directly to Rust's native `f64` mathematical methods.
-- [ ] Handle the GraalVM instantiation phase accurately, ensuring `wasi.initialize(instance)` is called and the explicit `from_openapi` export is executed instead of relying solely on `_start`.
+- [x] Create a custom `GraalVmLinker` struct wrapping `wasmtime::Linker` to register the specific module imports GraalVM expects.
+- [x] Implement memory read/write helper functions (`read_string`, `write_string`) to translate WASM memory pointers into Rust `String` objects safely.
+- [x] Implement a simulated JS object heap (`HashMap<u32, Box<dyn Any>>`) in the `wasmtime::Store` to mock the JS object references GraalVM passes back and forth.
+- [x] Mock the `interop` namespace: Link `stdoutWriter.printChars` and `stderrWriter.printChars` to route directly into our Rust captured log buffers.
+- [x] Mock the `interop` namespace: Link `Date.now` and `performance.now`, returning accurate Unix timestamps via Rust's `std::time::SystemTime`.
+- [x] Mock the `interop` namespace: Link `runtime.setExitCode` to capture the internal GraalVM exit status for validation.
+- [x] Mock the `jsbody` namespace (Core Java<->JS translation): Link `_JSObject.stringValue___String` and `_JSNumber.javaDouble___Double`.
+- [x] Mock the `jsbody` namespace: Link `_JSConversion.extractJavaScriptString___String_Object` to parse Java strings natively.
+- [x] Mock the `compat` namespace: Link `f64rem`, `f64log`, `f64log10`, and `f64pow` by delegating directly to Rust's native `f64` mathematical methods.
+- [x] Handle the GraalVM instantiation phase accurately, ensuring `wasi.initialize(instance)` is called and the explicit `from_openapi` export is executed instead of relying solely on `_start`.
 
 ### Phase 4: Shell Implementation (`cdd-sh`)
 Shell scripts do not compile natively to WASM. We must orchestrate a WASM-compatible shell interpreter to evaluate the `.sh` scripts.
