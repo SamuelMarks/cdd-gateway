@@ -155,7 +155,7 @@ mod tests {
         addon.modify(&mut openapi);
         assert!(openapi
             .components
-            .unwrap()
+            .expect("expected value")
             .security_schemes
             .contains_key("bearer_auth"));
     }

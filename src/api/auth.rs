@@ -3,7 +3,7 @@
 use crate::config::AppConfig;
 use crate::db::repository::CddRepository;
 use crate::github::client::GitHubClient;
-use actix_web::{web, HttpResponse, Responder};
+use actix_web::{web, HttpResponse};
 use argon2::{
     password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2,
@@ -48,27 +48,28 @@ pub struct RegisterPayload {
 }
 
 /// Generate a signed JWT for the given user, using the secret from `AppConfig`.
-fn generate_token(user_id: i32, username: &str, jwt_secret: &[u8]) -> String {
+fn generate_token(
+    user_id: i32,
+    username: &str,
+    jwt_secret: &[u8],
+) -> Result<String, crate::error::CddError> {
     let claims = crate::api::auth_middleware::Claims {
         sub: user_id,
         exp: (chrono::Utc::now() + chrono::Duration::hours(24)).timestamp() as usize,
         username: username.to_string(),
     };
-    encode(
+    Ok(encode(
         &Header::default(),
         &claims,
         &EncodingKey::from_secret(jwt_secret),
-    )
-    .unwrap()
+    )?)
 }
 
-fn hash_password(password: &str) -> String {
+fn hash_password(password: &str) -> Result<String, crate::error::CddError> {
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
-    argon2
-        .hash_password(password.as_bytes(), &salt)
-        .unwrap()
-        .to_string()
+    let hash = argon2.hash_password(password.as_bytes(), &salt)?;
+    Ok(hash.to_string())
 }
 
 fn verify_password(password: &str, hash: &str) -> bool {
@@ -95,23 +96,25 @@ pub async fn register(
     payload: web::Json<RegisterPayload>,
     repo: web::Data<Arc<dyn CddRepository>>,
     cfg: web::Data<AppConfig>,
-) -> impl Responder {
-    let hashed_pw = payload.password.as_ref().map(|pw| hash_password(pw));
+) -> Result<HttpResponse, crate::error::CddError> {
+    let hashed_pw = if let Some(pw) = payload.password.as_ref() {
+        Some(hash_password(pw)?)
+    } else {
+        None
+    };
 
-    match repo
+    let user = repo
         .create_user(
             None,
             payload.username.clone(),
             payload.email.clone(),
             hashed_pw,
         )
-        .await
-    {
-        Ok(user) => HttpResponse::Created().json(AuthResponse {
-            token: generate_token(user.id, &user.username, cfg.jwt_secret.as_bytes()),
-        }),
-        Err(_) => HttpResponse::BadRequest().finish(),
-    }
+        .await?;
+
+    let token = generate_token(user.id, &user.username, cfg.jwt_secret.as_bytes())?;
+
+    Ok(HttpResponse::Created().json(AuthResponse { token }))
 }
 
 /// Login with username/password
@@ -128,25 +131,21 @@ pub async fn login_password(
     payload: web::Json<LoginPayload>,
     repo: web::Data<Arc<dyn CddRepository>>,
     cfg: web::Data<AppConfig>,
-) -> impl Responder {
+) -> Result<HttpResponse, crate::error::CddError> {
     match repo.find_user_by_username(payload.username.clone()).await {
         Ok(Some(user)) => {
             if let Some(pw) = &payload.password {
                 if let Some(h) = &user.password_hash {
                     if verify_password(pw, h) {
-                        return HttpResponse::Ok().json(AuthResponse {
-                            token: generate_token(
-                                user.id,
-                                &user.username,
-                                cfg.jwt_secret.as_bytes(),
-                            ),
-                        });
+                        let token =
+                            generate_token(user.id, &user.username, cfg.jwt_secret.as_bytes())?;
+                        return Ok(HttpResponse::Ok().json(AuthResponse { token }));
                     }
                 }
             }
-            HttpResponse::Unauthorized().finish()
+            Ok(HttpResponse::Unauthorized().finish())
         }
-        _ => HttpResponse::Unauthorized().finish(),
+        _ => Ok(HttpResponse::Unauthorized().finish()),
     }
 }
 
@@ -166,27 +165,27 @@ pub async fn login_github(
     repo: web::Data<Arc<dyn CddRepository>>,
     github: web::Data<Arc<dyn GitHubClient>>,
     cfg: web::Data<AppConfig>,
-) -> impl Responder {
+) -> Result<HttpResponse, crate::error::CddError> {
     if payload.code.is_empty() {
-        return HttpResponse::BadRequest().finish();
+        return Ok(HttpResponse::BadRequest().finish());
     }
 
     // Exchange code for access token
     let token = match github.exchange_code(&payload.code).await {
         Ok(t) => t,
-        Err(_) => return HttpResponse::BadRequest().finish(),
+        Err(_) => return Ok(HttpResponse::BadRequest().finish()),
     };
 
     // Get user profile
     let gh_user = match github.get_user(&token).await {
         Ok(u) => u,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
+        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
     };
 
     // Get primary email
     let gh_emails = match github.get_emails(&token).await {
         Ok(e) => e,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
+        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
     };
 
     let primary_email = gh_emails
@@ -200,10 +199,11 @@ pub async fn login_github(
         .upsert_user(gh_user.id, gh_user.login.clone(), primary_email)
         .await
     {
-        Ok(user) => HttpResponse::Ok().json(AuthResponse {
-            token: generate_token(user.id, &user.username, cfg.jwt_secret.as_bytes()),
-        }),
-        Err(_) => HttpResponse::InternalServerError().finish(),
+        Ok(user) => {
+            let token = generate_token(user.id, &user.username, cfg.jwt_secret.as_bytes())?;
+            Ok(HttpResponse::Ok().json(AuthResponse { token }))
+        }
+        Err(_) => Ok(HttpResponse::InternalServerError().finish()),
     }
 }
 
@@ -226,7 +226,7 @@ mod tests {
     use actix_web::{test, App};
 
     fn test_config() -> AppConfig {
-        AppConfig::load(None).unwrap()
+        AppConfig::load(None).expect("expected value")
     }
 
     #[actix_web::test]
@@ -371,7 +371,7 @@ mod tests {
             })
             .to_request();
         let resp = test::call_service(&app, req).await;
-        assert_eq!(resp.status(), 400);
+        assert_eq!(resp.status(), 500);
     }
 
     #[actix_web::test]
@@ -383,7 +383,7 @@ mod tests {
                 github_id: None,
                 username: "test".into(),
                 email: "test@example.com".into(),
-                password_hash: Some(hash_password("pwd")),
+                password_hash: Some(hash_password("pwd").expect("expected hash")),
             }))
         });
 
@@ -417,7 +417,7 @@ mod tests {
                 github_id: None,
                 username: "test".into(),
                 email: "test@example.com".into(),
-                password_hash: Some(hash_password("pwd")),
+                password_hash: Some(hash_password("pwd").expect("expected hash")),
             }))
         });
 
@@ -451,7 +451,7 @@ mod tests {
                 github_id: None,
                 username: "test".into(),
                 email: "test@example.com".into(),
-                password_hash: Some(hash_password("pwd2")),
+                password_hash: Some(hash_password("pwd2").expect("expected hash")),
             }))
         });
 

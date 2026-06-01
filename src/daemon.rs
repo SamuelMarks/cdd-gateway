@@ -109,7 +109,10 @@ impl ProcessManager {
         config: ProcessConfig,
         mut shutdown_rx: watch::Receiver<bool>,
     ) {
-        let cmd_str = config.command.unwrap();
+        let Some(cmd_str) = config.command else {
+            error!("[{}] No command provided in config", name);
+            return;
+        };
         let mut retries = 0;
 
         loop {
@@ -213,7 +216,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_process_manager_external() {
+    async fn test_process_manager_external() -> Result<(), Box<dyn std::error::Error>> {
         let mut configs = HashMap::new();
         configs.insert(
             "cdd-go".to_string(),
@@ -226,14 +229,15 @@ mod tests {
             },
         );
         let manager = ProcessManager::new(configs);
-        manager.start_all().await.unwrap();
+        manager.start_all().await?;
 
         let handles = manager.handles.lock().await;
         assert!(handles.is_empty());
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_process_manager_local() {
+    async fn test_process_manager_local() -> Result<(), Box<dyn std::error::Error>> {
         let mut configs = HashMap::new();
         configs.insert(
             "test-echo".to_string(),
@@ -246,7 +250,7 @@ mod tests {
             },
         );
         let manager = ProcessManager::new(configs);
-        manager.start_all().await.unwrap();
+        manager.start_all().await?;
 
         {
             let handles = manager.handles.lock().await;
@@ -255,8 +259,10 @@ mod tests {
         }
 
         // Let it start and then stop
-        tokio::time::sleep(Duration::from_millis(50)).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
         manager.stop_all().await;
+
+        Ok(())
     }
 
     #[tokio::test]

@@ -384,7 +384,7 @@ mod tests {
 
         let payload = b"dummy payload";
         let secret = "my_webhook_secret";
-        let mut mac = HmacSha256::new_from_slice(secret.as_bytes()).unwrap();
+        let mut mac = HmacSha256::new_from_slice(secret.as_bytes()).expect("expected value");
         mac.update(payload);
         let valid_sig = format!("sha256={}", hex::encode(mac.finalize().into_bytes()));
 

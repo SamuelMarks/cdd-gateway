@@ -76,8 +76,8 @@ mod tests {
     static ENV_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
     #[test]
-    fn test_config_env_overrides() {
-        let _lock = ENV_MUTEX.lock().unwrap();
+    fn test_config_env_overrides() -> Result<(), Box<dyn std::error::Error>> {
+        let _lock = ENV_MUTEX.lock().map_err(|e| e.to_string())?;
 
         // 1. Default config
         std::env::remove_var("CDD__JWT_SECRET");
@@ -85,7 +85,7 @@ mod tests {
         std::env::remove_var("CDD__GITHUB_TOKEN");
         std::env::remove_var("CDD__OFFLINE_MODE");
 
-        let cfg = AppConfig::load(None).unwrap();
+        let cfg = AppConfig::load(None)?;
         assert_eq!(cfg.server_bind, "0.0.0.0:8080");
         assert_eq!(
             cfg.database_url,
@@ -98,40 +98,43 @@ mod tests {
 
         // 2. JWT Secret override
         std::env::set_var("CDD__JWT_SECRET", "test-jwt-secret");
-        let cfg = AppConfig::load(None).unwrap();
+        let cfg = AppConfig::load(None)?;
         assert_eq!(cfg.jwt_secret, "test-jwt-secret");
         std::env::remove_var("CDD__JWT_SECRET");
 
         // 3. Webhook Secret override
         std::env::set_var("CDD__WEBHOOK_SECRET", "test-webhook-secret");
-        let cfg = AppConfig::load(None).unwrap();
+        let cfg = AppConfig::load(None)?;
         assert_eq!(cfg.webhook_secret, "test-webhook-secret");
         std::env::remove_var("CDD__WEBHOOK_SECRET");
 
         // 4. GitHub Token override
         std::env::set_var("CDD__GITHUB_TOKEN", "ghp_test123");
-        let cfg = AppConfig::load(None).unwrap();
+        let cfg = AppConfig::load(None)?;
         assert_eq!(cfg.github_token.as_deref(), Some("ghp_test123"));
         std::env::remove_var("CDD__GITHUB_TOKEN");
 
         // 5. Offline Mode override
         std::env::set_var("CDD__OFFLINE_MODE", "true");
-        let cfg = AppConfig::load(None).unwrap();
+        let cfg = AppConfig::load(None)?;
         assert!(cfg.offline_mode);
         std::env::remove_var("CDD__OFFLINE_MODE");
+
+        Ok(())
     }
 
     #[test]
-    fn test_config_load_with_file_path() {
+    fn test_config_load_with_file_path() -> Result<(), Box<dyn std::error::Error>> {
         // Create a temporary file with config
         use std::io::Write;
         let file_path = "test_cdd_config.toml";
-        let mut file = std::fs::File::create(file_path).unwrap();
-        writeln!(file, "server_bind = \"127.0.0.1:9090\"").unwrap();
+        let mut file = std::fs::File::create(file_path)?;
+        writeln!(file, "server_bind = \"127.0.0.1:9090\"")?;
 
-        let config = AppConfig::load(Some(file_path)).unwrap();
+        let config = AppConfig::load(Some(file_path))?;
         assert_eq!(config.server_bind, "127.0.0.1:9090");
 
-        std::fs::remove_file(file_path).unwrap();
+        std::fs::remove_file(file_path)?;
+        Ok(())
     }
 }

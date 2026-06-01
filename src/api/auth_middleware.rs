@@ -81,7 +81,7 @@ pub fn generate_test_token() -> String {
         &claims,
         &EncodingKey::from_secret(b"super-secret-key"),
     )
-    .unwrap()
+    .expect("expected value")
 }
 
 #[cfg(test)]
@@ -131,7 +131,9 @@ mod tests {
     async fn test_auth_middleware_with_config() {
         let app = test::init_service(
             App::new()
-                .app_data(web::Data::new(AppConfig::load(None).unwrap()))
+                .app_data(web::Data::new(
+                    AppConfig::load(None).expect("expected value"),
+                ))
                 .route("/", web::get().to(dummy_handler)),
         )
         .await;

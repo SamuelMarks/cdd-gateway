@@ -149,11 +149,11 @@ async fn main() -> std::io::Result<()> {
             });
 
             if !output.status.success() {
-                std::io::Write::write_all(&mut std::io::stderr(), &output.stderr).unwrap();
+                std::io::Write::write_all(&mut std::io::stderr(), &output.stderr)?;
                 std::process::exit(output.status.code().unwrap_or(1));
             }
 
-            std::io::Write::write_all(&mut std::io::stdout(), &output.stdout).unwrap();
+            std::io::Write::write_all(&mut std::io::stdout(), &output.stdout)?;
             return Ok(());
         }
         Some(Commands::FromOpenApi {
@@ -191,10 +191,10 @@ async fn main() -> std::io::Result<()> {
             });
 
             if !output.status.success() {
-                std::io::Write::write_all(&mut std::io::stderr(), &output.stderr).unwrap();
+                std::io::Write::write_all(&mut std::io::stderr(), &output.stderr)?;
                 std::process::exit(output.status.code().unwrap_or(1));
             }
-            std::io::Write::write_all(&mut std::io::stdout(), &output.stdout).unwrap();
+            std::io::Write::write_all(&mut std::io::stdout(), &output.stdout)?;
             return Ok(());
         }
         Some(Commands::ToOpenApi {
@@ -230,10 +230,10 @@ async fn main() -> std::io::Result<()> {
             });
 
             if !output.status.success() {
-                std::io::Write::write_all(&mut std::io::stderr(), &output.stderr).unwrap();
+                std::io::Write::write_all(&mut std::io::stderr(), &output.stderr)?;
                 std::process::exit(output.status.code().unwrap_or(1));
             }
-            std::io::Write::write_all(&mut std::io::stdout(), &output.stdout).unwrap();
+            std::io::Write::write_all(&mut std::io::stdout(), &output.stdout)?;
             return Ok(());
         }
         None => {}

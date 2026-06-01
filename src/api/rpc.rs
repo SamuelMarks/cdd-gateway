@@ -104,7 +104,7 @@ pub async fn rpc_handler(
                 version: env!("CARGO_PKG_VERSION").to_string(),
             };
             HttpResponse::Ok().json(RpcResponse::success(
-                serde_json::to_value(res).unwrap(),
+                serde_json::to_value(res).expect("expected value"),
                 req.id.clone(),
             ))
         }
@@ -224,7 +224,7 @@ pub async fn rpc_handler(
             };
             match repo.get_organization(org_id).await {
                 Ok(Some(org)) => HttpResponse::Ok().json(RpcResponse::success(
-                    serde_json::to_value(org).unwrap(),
+                    serde_json::to_value(org).expect("expected value"),
                     req.id.clone(),
                 )),
                 Ok(None) => HttpResponse::Ok().json(RpcResponse::error(
@@ -254,7 +254,7 @@ pub async fn rpc_handler(
             };
             match repo.get_repository(repo_id).await {
                 Ok(Some(r)) => HttpResponse::Ok().json(RpcResponse::success(
-                    serde_json::to_value(r).unwrap(),
+                    serde_json::to_value(r).expect("expected value"),
                     req.id.clone(),
                 )),
                 Ok(None) => HttpResponse::Ok().json(RpcResponse::error(
@@ -322,7 +322,7 @@ pub async fn rpc_handler(
                 .map(|s| s.to_string());
             match repo.create_organization(None, login, description).await {
                 Ok(org) => HttpResponse::Ok().json(RpcResponse::success(
-                    serde_json::to_value(org).unwrap(),
+                    serde_json::to_value(org).expect("expected value"),
                     req.id.clone(),
                 )),
                 Err(e) => HttpResponse::Ok().json(RpcResponse::error(
@@ -358,7 +358,7 @@ pub async fn rpc_handler(
                 .await
             {
                 Ok(r) => HttpResponse::Ok().json(RpcResponse::success(
-                    serde_json::to_value(r).unwrap(),
+                    serde_json::to_value(r).expect("expected value"),
                     req.id.clone(),
                 )),
                 Err(e) => HttpResponse::Ok().json(RpcResponse::error(
@@ -439,7 +439,7 @@ mod tests {
             .to_request();
 
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
-        assert_eq!(resp.error.unwrap().code, -32600);
+        assert_eq!(resp.error.expect("expected value").code, -32600);
     }
 
     #[actix_web::test]
@@ -465,7 +465,7 @@ mod tests {
             .to_request();
 
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
-        assert_eq!(resp.error.unwrap().code, -32601);
+        assert_eq!(resp.error.expect("expected value").code, -32601);
     }
 
     #[actix_web::test]
@@ -550,7 +550,7 @@ mod tests {
             })
             .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
-        assert_eq!(resp.error.unwrap().code, -32602);
+        assert_eq!(resp.error.expect("expected value").code, -32602);
     }
 
     #[actix_web::test]
@@ -575,7 +575,7 @@ mod tests {
             })
             .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
-        assert_eq!(resp.error.unwrap().code, 404);
+        assert_eq!(resp.error.expect("expected value").code, 404);
     }
 
     #[actix_web::test]
@@ -659,7 +659,7 @@ mod tests {
             })
             .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
-        assert_eq!(resp.error.unwrap().code, -32602);
+        assert_eq!(resp.error.expect("expected value").code, -32602);
     }
 
     #[actix_web::test]
@@ -684,7 +684,7 @@ mod tests {
             })
             .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
-        assert_eq!(resp.error.unwrap().code, 404);
+        assert_eq!(resp.error.expect("expected value").code, 404);
     }
 
     #[actix_web::test]
@@ -737,7 +737,7 @@ mod tests {
             .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
         assert!(resp.result.is_some());
-        assert_eq!(resp.result.unwrap()["role"], "owner");
+        assert_eq!(resp.result.expect("expected value")["role"], "owner");
     }
 
     #[actix_web::test]
@@ -761,7 +761,7 @@ mod tests {
             })
             .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
-        assert_eq!(resp.error.unwrap().code, -32602);
+        assert_eq!(resp.error.expect("expected value").code, -32602);
     }
 
     #[actix_web::test]
@@ -786,7 +786,7 @@ mod tests {
             })
             .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
-        assert_eq!(resp.error.unwrap().code, 404);
+        assert_eq!(resp.error.expect("expected value").code, 404);
     }
 
     #[actix_web::test]
@@ -869,7 +869,7 @@ mod tests {
             })
             .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
-        assert_eq!(resp.error.unwrap().code, -32602);
+        assert_eq!(resp.error.expect("expected value").code, -32602);
     }
 
     #[actix_web::test]
@@ -953,7 +953,7 @@ mod tests {
             })
             .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
-        assert_eq!(resp.error.unwrap().code, -32602);
+        assert_eq!(resp.error.expect("expected value").code, -32602);
     }
 
     #[actix_web::test]
@@ -1484,7 +1484,7 @@ mod tests {
 
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
         // The process succeeds but JSON is invalid. We should hit the line 208-209.
-        assert_eq!(resp.error.unwrap().code, 500);
+        assert_eq!(resp.error.expect("expected value").code, 500);
     }
 
     #[actix_web::test]
@@ -1701,6 +1701,6 @@ mod tests {
         // output.stdout is empty.
         // serde_json::from_str("") fails.
         // Hits else block for Invalid JSON generated by target
-        assert_eq!(resp.error.unwrap().code, 500);
+        assert_eq!(resp.error.expect("expected value").code, 500);
     }
 }
