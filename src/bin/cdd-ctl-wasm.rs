@@ -39,7 +39,7 @@ struct Args {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Generate code to JSON format for documentation runner
+    /// Generate JSON documentation with code snippets for an OpenAPI specification.
     #[command(name = "to_docs_json")]
     ToDocsJson {
         /// Target language
@@ -58,7 +58,7 @@ enum Commands {
         no_wrapping: bool,
     },
 
-    /// Generate code from OpenAPI
+    /// Generate code from an OpenAPI specification.
     #[command(name = "from_openapi")]
     FromOpenApi {
         /// Target language
@@ -72,7 +72,7 @@ enum Commands {
         args: Vec<String>,
     },
 
-    /// Generate an OpenAPI specification from source code
+    /// Generate an OpenAPI specification from source code.
     #[command(name = "to_openapi")]
     ToOpenApi {
         /// Target language
