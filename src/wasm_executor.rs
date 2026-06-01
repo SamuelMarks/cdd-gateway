@@ -237,7 +237,7 @@ impl WasmExecutor for NativeWasmExecutor {
             self.run_python(target, input_dir, &run_args)?
         } else if target == "cdd-sh" {
             let mut sh_args = vec!["/workspace/script.sh".to_string()];
-            sh_args.extend(run_args.into_iter());
+            sh_args.extend(run_args);
             self.run_wasi(
                 "dash",
                 input_dir,
