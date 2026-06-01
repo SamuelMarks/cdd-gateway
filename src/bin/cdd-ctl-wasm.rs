@@ -45,15 +45,15 @@ enum Commands {
         /// Target language
         target_language: String,
 
-        /// Path to the OpenAPI specification file
+        /// Path or URL to the OpenAPI specification.
         #[arg(short, long)]
         input: String,
 
-        /// Strip or omit package declarations, dependencies, and imports
+        /// Omit the imports field.
         #[arg(long)]
         no_imports: bool,
 
-        /// Strip enclosing boilerplate classes, struct initializations, or wrapper functions
+        /// Omit the wrapper fields.
         #[arg(long)]
         no_wrapping: bool,
     },
