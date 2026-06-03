@@ -14,7 +14,9 @@ RUN cargo build --release
 FROM debian:bookworm-slim
 
 # Install runtime dependencies if needed
-RUN apt-get update && apt-get install -y libssl3 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get install -y curl libssl3 && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/local/bin
 COPY --from=builder /usr/src/cdd-ctl/target/release/cdd-ctl .

@@ -15,7 +15,7 @@ RUN cargo build --release
 FROM alpine:latest
 
 # Install runtime dependencies if needed
-RUN apk add --no-cache libgcc openssl
+RUN apk add --no-cache libgcc openssl curl
 
 WORKDIR /usr/local/bin
 COPY --from=builder /usr/src/cdd-ctl/target/release/cdd-ctl .
