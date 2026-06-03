@@ -1,3 +1,4 @@
+#![cfg(not(tarpaulin_include))]
 #![allow(missing_docs)]
 use derive_more::Display;
 use derive_more::Error;

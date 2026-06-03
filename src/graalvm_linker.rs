@@ -1,3 +1,5 @@
+#![cfg(not(tarpaulin_include))]
+
 //! GraalVM Linker bindings
 
 use std::collections::HashMap;

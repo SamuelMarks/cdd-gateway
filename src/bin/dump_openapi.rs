@@ -6,9 +6,11 @@
 use utoipa::OpenApi;
 
 /// Main function to dump the `openapi.json` schema.
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), cdd_ctl::error::CddError> {
     let doc = cdd_ctl::api::ApiDoc::openapi();
-    let json = doc.to_pretty_json()?;
-    std::fs::write("openapi.json", json)?;
+    let json = doc
+        .to_pretty_json()
+        .map_err(|e| cdd_ctl::error::CddError::Config(e.to_string()))?;
+    std::fs::write("openapi.json", json).map_err(cdd_ctl::error::CddError::Io)?;
     Ok(())
 }

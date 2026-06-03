@@ -1,5 +1,3 @@
-#![cfg(not(tarpaulin_include))]
-
 //! Daemon manager for external JSON-RPC servers (cdd-* projects).
 #![allow(clippy::needless_return)]
 
@@ -60,7 +58,7 @@ impl ProcessManager {
     }
 
     /// Start all configured local processes.
-    pub async fn start_all(&self) -> Result<(), String> {
+    pub async fn start_all(&self) -> Result<(), crate::error::CddError> {
         let mut handles = self.handles.lock().await;
 
         for (name, config) in &self.configs {
@@ -213,10 +211,22 @@ impl ProcessManager {
 
 #[cfg(test)]
 mod tests {
+    #[tokio::test]
+    async fn test_monitor_process_no_command() {
+        let (tx, rx) = watch::channel(false);
+        let config = ProcessConfig {
+            command: None,
+            args: None,
+            external_address: None,
+            max_retries: 0,
+            restart_delay_ms: 0,
+        };
+        ProcessManager::monitor_process("test".to_string(), config, rx).await;
+    }
     use super::*;
 
     #[tokio::test]
-    async fn test_process_manager_external() -> Result<(), Box<dyn std::error::Error>> {
+    async fn test_process_manager_external() -> Result<(), crate::error::CddError> {
         let mut configs = HashMap::new();
         configs.insert(
             "cdd-go".to_string(),
@@ -237,7 +247,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_process_manager_local() -> Result<(), Box<dyn std::error::Error>> {
+    async fn test_process_manager_local() -> Result<(), crate::error::CddError> {
         let mut configs = HashMap::new();
         configs.insert(
             "test-echo".to_string(),
@@ -298,7 +308,7 @@ mod tests {
         );
         let pm = ProcessManager::new(configs);
         let _ = pm.start_all().await;
-        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
         let _ = pm.stop_all().await;
     }
 
@@ -330,7 +340,7 @@ mod tests {
         );
         let pm = ProcessManager::new(configs);
         let _ = pm.start_all().await;
-        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
         let _ = pm.stop_all().await;
     }
 

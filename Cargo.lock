@@ -657,7 +657,6 @@ dependencies = [
  "actix-identity",
  "actix-web",
  "actix-web-httpauth",
- "anyhow",
  "argon2",
  "async-trait",
  "base64 0.22.1",
