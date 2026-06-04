@@ -163,17 +163,11 @@ impl ProcessManager {
 
             tokio::select! {
                 status_res = child.wait() => {
-                    match status_res {
-                        Ok(status) => {
-                            if status.success() {
-                                info!("[{}] Exited successfully.", name);
-                            } else {
-                                warn!("[{}] Exited with status: {}", name, status);
-                            }
-                        }
-                        #[cfg(not(tarpaulin_include))]
-                        Err(e) => {
-                            error!("[{}] Error waiting for process: {}", name, e);
+                    if let Ok(status) = status_res {
+                        if status.success() {
+                            info!("[{}] Exited successfully.", name);
+                        } else {
+                            warn!("[{}] Exited with status: {}", name, status);
                         }
                     }
 
