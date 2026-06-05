@@ -1,7 +1,7 @@
 use crate::api::VersionResponse;
 use crate::db::repository::CddRepository;
 use crate::github::client::GitHubClient;
-use crate::wasm_executor::WasmExecutor;
+use cdd_engine::wasm_executor::WasmExecutor;
 use actix_web::{web, HttpResponse, Responder};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -158,7 +158,7 @@ pub async fn rpc_handler(
                 let args_clone = args.clone();
 
                 match tokio::task::spawn_blocking(move || {
-                    crate::wasm_executor::WASM_EXECUTOR
+                    cdd_engine::wasm_executor::WASM_EXECUTOR
                         .execute_to_stdout(&target_clone, &input_clone, &args_clone)
                         .map_err(|e| e.to_string())
                 })
