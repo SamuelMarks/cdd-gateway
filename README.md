@@ -11,14 +11,16 @@
 
 ## Features
 
-- **Daemon Manager:** A built-in supervisor that manages the lifecycle, logging, and auto-restart backoff for up to 13 distinct `cdd-*` JSON-RPC language servers.
-- **REST API Gateway:** A high-performance RESTful API built on the `actix-web` framework.
-- **Database & ORM:** Robust PostgreSQL data modeling using `diesel` to manage organizations, users, repositories, and releases.
-- **GitHub Integration:** Seamlessly supports GitHub OAuth, webhooks, and automated secret management using Libsodium.
-- **Authentication:** Secure JWT-based `Bearer` authentication, including an OAuth2 password grant flow with Argon2 hashing.
-- **Access Control (RBAC):** Organization ownership models that securely isolate management of SDKs and synchronization processes.
-- **OpenAPI Integration:** Fully self-documenting. Exposes a live Swagger UI at `/swagger-ui/` out of the box using `utoipa`.
-- **Quality Assurance:** Maintained with strict 100% test and rustdoc coverage requirements (`cargo tarpaulin`), enforced in CI.
+| Feature | Description |
+|---|---|
+| **Daemon Manager** | A built-in supervisor that manages the lifecycle, logging, and auto-restart backoff for up to 13 distinct `cdd-*` JSON-RPC language servers. |
+| **REST API Gateway** | A high-performance RESTful API built on the `actix-web` framework. |
+| **Database & ORM** | Robust PostgreSQL data modeling using `diesel` to manage organizations, users, repositories, and releases. |
+| **GitHub Integration** | Seamlessly supports GitHub OAuth, webhooks, and automated secret management using Libsodium. |
+| **Authentication** | Secure JWT-based `Bearer` authentication, including an OAuth2 password grant flow with Argon2 hashing. |
+| **Access Control (RBAC)**| Organization ownership models that securely isolate management of SDKs and synchronization processes. |
+| **OpenAPI Integration** | Fully self-documenting. Exposes a live Swagger UI at `/swagger-ui/` out of the box using `utoipa`. |
+| **Quality Assurance** | Maintained with strict 100% test and rustdoc coverage requirements (`cargo tarpaulin`), enforced in CI. |
 
 ## Supported Ecosystems
 
