@@ -1,8 +1,8 @@
 use crate::api::VersionResponse;
 use crate::db::repository::CddRepository;
 use crate::github::client::GitHubClient;
-use cdd_engine::wasm_executor::WasmExecutor;
 use actix_web::{web, HttpResponse, Responder};
+use cdd_engine::wasm_executor::WasmExecutor;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use utoipa::ToSchema;
