@@ -8,10 +8,10 @@ pub mod api;
 pub mod config;
 /// Database module
 pub mod db;
-/// GitHub module
-pub mod github;
 /// Error module
 pub mod error;
+/// GitHub module
+pub mod github;
 
 pub use config::AppConfig;
 pub use db::repository::{CddRepository, PgRepository};
