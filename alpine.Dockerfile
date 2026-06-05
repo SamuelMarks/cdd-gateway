@@ -2,7 +2,7 @@
 FROM rust:alpine AS builder
 
 # Install build dependencies
-RUN apk add --no-cache musl-dev gcc pkgconfig openssl-dev
+RUN apk add --no-cache musl-dev gcc pkgconfig openssl-dev postgresql-dev
 
 # Create a new empty shell project
 WORKDIR /usr/src/cdd-ctl
@@ -15,7 +15,7 @@ RUN cargo build --release
 FROM alpine:latest
 
 # Install runtime dependencies if needed
-RUN apk add --no-cache libgcc openssl curl
+RUN apk add --no-cache libgcc openssl curl libpq
 
 WORKDIR /usr/local/bin
 COPY --from=builder /usr/src/cdd-ctl/target/release/cdd-ctl .
