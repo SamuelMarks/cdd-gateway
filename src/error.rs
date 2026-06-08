@@ -1,118 +1,97 @@
-#![cfg(not(tarpaulin_include))]
-#![allow(missing_docs)]
-use derive_more::Display;
-use derive_more::Error;
+#![deny(missing_docs)]
+//! Error handling module for cdd-gateway.
 
-/// The central Error enum for cdd-ctl.
-#[derive(Debug, Display, Error)]
-pub enum CddError {
+use actix_web::{http::StatusCode, HttpResponse, ResponseError};
+use derive_more::{Display, Error, From};
+use serde_json::json;
+
+/// The central Error enum for cdd-gateway.
+#[derive(Debug, Display, Error, From)]
+pub enum CddGatewayError {
+    /// Standard I/O error.
     #[display("I/O Error: {_0}")]
     Io(std::io::Error),
 
+    /// Database query or connection error.
     #[display("Database Error: {_0}")]
     Database(diesel::result::Error),
 
+    /// Database connection pool error.
     #[display("Connection Pool Error: {_0}")]
     Pool(diesel::r2d2::PoolError),
 
+    /// JSON serialization/deserialization error.
     #[display("JSON Error: {_0}")]
     Json(serde_json::Error),
 
-    #[display("Configuration Error: {_0}")]
-    #[error(ignore)]
-    Config(String),
-
-    #[display("Environment Error: {_0}")]
-    Env(dotenvy::Error),
-
+    /// JWT token generation or validation error.
     #[display("JWT Error: {_0}")]
     Jwt(jsonwebtoken::errors::Error),
 
-    #[display("GitHub API Error: {_0}")]
-    GitHub(reqwest::Error),
+    /// HTTP request error to external APIs (e.g. GitHub).
+    #[display("External API Error: {_0}")]
+    Http(reqwest::Error),
 
+    /// Password hashing error.
     #[display("Hash Error: {_0}")]
     Hash(argon2::password_hash::Error),
 
+    /// UUID parsing error.
     #[display("UUID Error: {_0}")]
     Uuid(uuid::Error),
 
-    #[display("WASM Error: {_0}")]
-    #[error(ignore)]
-    Wasm(String),
+    /// Engine orchestration error.
+    #[display("Engine Error: {_0}")]
+    Engine(cdd_engine::error::CddEngineError),
 
-    #[display("System Command Failed: {_0}")]
+    /// Error loading or parsing configuration.
+    #[display("Configuration Error: {_0}")]
     #[error(ignore)]
-    Command(String),
+    #[from(ignore)]
+    Config(String),
 
+    /// Data validation error.
     #[display("Validation Error: {_0}")]
     #[error(ignore)]
+    #[from(ignore)]
     Validation(String),
 
+    /// Requested resource not found.
     #[display("Not Found: {_0}")]
     #[error(ignore)]
+    #[from(ignore)]
     NotFound(String),
 
+    /// Internal server error.
     #[display("Internal Server Error: {_0}")]
     #[error(ignore)]
+    #[from(ignore)]
     Internal(String),
+
+    /// Unauthorized access.
+    #[display("Unauthorized: {_0}")]
+    #[error(ignore)]
+    #[from(ignore)]
+    Unauthorized(String),
 }
 
-impl actix_web::error::ResponseError for CddError {
-    fn status_code(&self) -> actix_web::http::StatusCode {
+impl ResponseError for CddGatewayError {
+    fn status_code(&self) -> StatusCode {
         match self {
-            Self::NotFound(_) => actix_web::http::StatusCode::NOT_FOUND,
-            Self::Validation(_) => actix_web::http::StatusCode::BAD_REQUEST,
-            Self::Config(_) | Self::Json(_) => actix_web::http::StatusCode::BAD_REQUEST,
-            _ => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Self::NotFound(_) => StatusCode::NOT_FOUND,
+            Self::Validation(_) | Self::Config(_) | Self::Json(_) => StatusCode::BAD_REQUEST,
+            Self::Unauthorized(_) | Self::Jwt(_) => StatusCode::UNAUTHORIZED,
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
-}
 
-impl From<std::io::Error> for CddError {
-    fn from(err: std::io::Error) -> Self {
-        CddError::Io(err)
-    }
-}
-
-impl From<diesel::result::Error> for CddError {
-    fn from(err: diesel::result::Error) -> Self {
-        CddError::Database(err)
-    }
-}
-
-impl From<diesel::r2d2::PoolError> for CddError {
-    fn from(err: diesel::r2d2::PoolError) -> Self {
-        CddError::Pool(err)
-    }
-}
-
-impl From<serde_json::Error> for CddError {
-    fn from(err: serde_json::Error) -> Self {
-        CddError::Json(err)
-    }
-}
-
-impl From<jsonwebtoken::errors::Error> for CddError {
-    fn from(err: jsonwebtoken::errors::Error) -> Self {
-        CddError::Jwt(err)
-    }
-}
-
-impl From<reqwest::Error> for CddError {
-    fn from(err: reqwest::Error) -> Self {
-        CddError::GitHub(err)
-    }
-}
-
-impl From<argon2::password_hash::Error> for CddError {
-    fn from(err: argon2::password_hash::Error) -> Self {
-        CddError::Hash(err)
-    }
-}
-
-impl From<uuid::Error> for CddError {
-    fn from(err: uuid::Error) -> Self {
-        CddError::Uuid(err)
+    fn error_response(&self) -> HttpResponse {
+        let status = self.status_code();
+        HttpResponse::build(status).json(json!({
+            "error": {
+                "message": self.to_string(),
+                "status": status.as_u16()
+            }
+        }))
     }
 }

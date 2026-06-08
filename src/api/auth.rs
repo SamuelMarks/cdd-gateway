@@ -52,7 +52,7 @@ fn generate_token(
     user_id: i32,
     username: &str,
     jwt_secret: &[u8],
-) -> Result<String, crate::error::CddError> {
+) -> Result<String, crate::error::CddGatewayError> {
     let claims = crate::api::auth_middleware::Claims {
         sub: user_id,
         exp: (chrono::Utc::now() + chrono::Duration::hours(24)).timestamp() as usize,
@@ -65,7 +65,7 @@ fn generate_token(
     )?)
 }
 
-fn hash_password(password: &str) -> Result<String, crate::error::CddError> {
+fn hash_password(password: &str) -> Result<String, crate::error::CddGatewayError> {
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
     let hash = argon2.hash_password(password.as_bytes(), &salt)?;
@@ -96,7 +96,7 @@ pub async fn register(
     payload: web::Json<RegisterPayload>,
     repo: web::Data<Arc<dyn CddRepository>>,
     cfg: web::Data<AppConfig>,
-) -> Result<HttpResponse, crate::error::CddError> {
+) -> Result<HttpResponse, crate::error::CddGatewayError> {
     let hashed_pw = if let Some(pw) = payload.password.as_ref() {
         Some(hash_password(pw)?)
     } else {
@@ -131,7 +131,7 @@ pub async fn login_password(
     payload: web::Json<LoginPayload>,
     repo: web::Data<Arc<dyn CddRepository>>,
     cfg: web::Data<AppConfig>,
-) -> Result<HttpResponse, crate::error::CddError> {
+) -> Result<HttpResponse, crate::error::CddGatewayError> {
     match repo.find_user_by_username(payload.username.clone()).await {
         Ok(Some(user)) => {
             if let Some(pw) = &payload.password {
@@ -165,7 +165,7 @@ pub async fn login_github(
     repo: web::Data<Arc<dyn CddRepository>>,
     github: web::Data<Arc<dyn GitHubClient>>,
     cfg: web::Data<AppConfig>,
-) -> Result<HttpResponse, crate::error::CddError> {
+) -> Result<HttpResponse, crate::error::CddGatewayError> {
     if payload.code.is_empty() {
         return Ok(HttpResponse::BadRequest().finish());
     }

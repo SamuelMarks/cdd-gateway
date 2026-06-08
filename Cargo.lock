@@ -650,7 +650,25 @@ dependencies = [
 ]
 
 [[package]]
-name = "cdd-ctl"
+name = "cdd-engine"
+version = "0.0.1"
+dependencies = [
+ "async-trait",
+ "config",
+ "derive_more 1.0.0",
+ "env_logger",
+ "log",
+ "once_cell",
+ "rquickjs",
+ "serde",
+ "serde_json",
+ "tokio",
+ "wasmtime",
+ "wasmtime-wasi",
+]
+
+[[package]]
+name = "cdd-gateway"
 version = "0.0.1"
 dependencies = [
  "actix-cors",
@@ -660,6 +678,7 @@ dependencies = [
  "argon2",
  "async-trait",
  "base64 0.22.1",
+ "cdd-engine",
  "chrono",
  "clap",
  "config",
@@ -678,18 +697,16 @@ dependencies = [
  "once_cell",
  "rand 0.10.1",
  "reqwest 0.12.28",
- "rquickjs",
  "serde",
  "serde_json",
  "sha2",
  "thiserror 2.0.18",
  "tokio",
+ "tokio-stream",
  "tokio-util",
  "utoipa",
  "utoipa-swagger-ui",
  "uuid",
- "wasmtime",
- "wasmtime-wasi",
 ]
 
 [[package]]
@@ -1269,6 +1286,7 @@ version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb7330aeadfbe296029522e6c40f315320aba36fc43a5b3632f3795348f3bd22"
 dependencies = [
+ "convert_case 0.6.0",
  "proc-macro2",
  "quote",
  "syn",
@@ -4322,6 +4340,7 @@ dependencies = [
  "signal-hook-registry",
  "socket2 0.6.4",
  "tokio-macros",
+ "tracing",
  "windows-sys 0.61.2",
 ]
 
@@ -4363,6 +4382,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1729aa945f29d91ba541258c8df89027d5792d85a8841fb65e8bf0f4ede4ef61"
 dependencies = [
  "rustls 0.23.37",
+ "tokio",
+]
+
+[[package]]
+name = "tokio-stream"
+version = "0.1.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32da49809aab5c3bc678af03902d4ccddea2a87d028d86392a4b1560c6906c70"
+dependencies = [
+ "futures-core",
+ "pin-project-lite",
  "tokio",
 ]
 
