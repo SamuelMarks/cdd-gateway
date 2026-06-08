@@ -15,5 +15,7 @@ pub mod github;
 
 pub use config::AppConfig;
 pub use db::repository::{CddRepository, PgRepository};
-pub use error::CddError;
+pub use error::CddGatewayError;
 pub use github::client::{GitHubClient, ReqwestGitHubClient};
+/// MCP Transport Module
+pub mod mcp;

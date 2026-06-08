@@ -49,6 +49,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
     orgs::configure(cfg);
     repos::configure(cfg);
     rpc::configure(cfg);
+    crate::mcp::configure(cfg);
 }
 
 /// OpenAPI schema definitions
