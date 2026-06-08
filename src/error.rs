@@ -95,3 +95,49 @@ impl ResponseError for CddGatewayError {
         }))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_error_status_codes() {
+        assert_eq!(
+            CddGatewayError::NotFound("test".to_string()).status_code(),
+            StatusCode::NOT_FOUND
+        );
+
+        assert_eq!(
+            CddGatewayError::Validation("test".to_string()).status_code(),
+            StatusCode::BAD_REQUEST
+        );
+        assert_eq!(
+            CddGatewayError::Config("test".to_string()).status_code(),
+            StatusCode::BAD_REQUEST
+        );
+        assert_eq!(
+            CddGatewayError::Json(
+                serde_json::from_str::<serde_json::Value>("invalid").unwrap_err()
+            )
+            .status_code(),
+            StatusCode::BAD_REQUEST
+        );
+
+        assert_eq!(
+            CddGatewayError::Unauthorized("test".to_string()).status_code(),
+            StatusCode::UNAUTHORIZED
+        );
+        // Using a dummy internal error to cover the fallback branch
+        assert_eq!(
+            CddGatewayError::Internal("test".to_string()).status_code(),
+            StatusCode::INTERNAL_SERVER_ERROR
+        );
+    }
+
+    #[test]
+    fn test_error_response() {
+        let err = CddGatewayError::NotFound("something missing".to_string());
+        let resp = err.error_response();
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    }
+}

@@ -652,6 +652,7 @@ dependencies = [
 [[package]]
 name = "cdd-engine"
 version = "0.0.1"
+source = "git+https://github.com/SamuelMarks/cdd-engine#072d9524b991d9ef7522b86d04f3dc45ff6be2d0"
 dependencies = [
  "async-trait",
  "config",

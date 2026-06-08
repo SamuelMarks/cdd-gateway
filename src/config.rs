@@ -1,5 +1,3 @@
-#![cfg(not(tarpaulin_include))]
-
 use cdd_engine::daemon::ProcessConfig;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -139,5 +137,15 @@ mod tests {
 
         std::fs::remove_file(file_path)?;
         Ok(())
+    }
+
+    #[test]
+    fn test_config_load_deserialize_error() {
+        let _lock = ENV_MUTEX.lock().unwrap();
+        // Set offline_mode to a string that cannot be parsed as a boolean
+        std::env::set_var("CDD__OFFLINE_MODE", "not_a_bool");
+        let result = AppConfig::load(None);
+        assert!(result.is_err());
+        std::env::remove_var("CDD__OFFLINE_MODE");
     }
 }

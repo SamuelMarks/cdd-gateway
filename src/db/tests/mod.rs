@@ -67,6 +67,10 @@ impl std::error::Error for TestError {}
 pub fn setup_test_db() -> Result<PgRepository, TestError> {
     static MIGRATION_RESULT: std::sync::OnceLock<Result<(), String>> = std::sync::OnceLock::new();
 
+    println!(
+        "DATABASE_URL: {}",
+        std::env::var("DATABASE_URL").unwrap_or_default()
+    );
     let database_url = std::env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgres://postgres:password@localhost/cdd".to_string());
     let pool = establish_connection_pool(&database_url);

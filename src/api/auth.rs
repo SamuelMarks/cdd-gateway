@@ -1,5 +1,3 @@
-#![cfg(not(tarpaulin_include))]
-
 use crate::config::AppConfig;
 use crate::db::repository::CddRepository;
 use crate::github::client::GitHubClient;
@@ -521,6 +519,79 @@ mod tests {
             .to_request();
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 400);
+    }
+
+    #[actix_web::test]
+    async fn test_login_github_get_user_fail_but_emails_succeed() {
+        let mut mock_repo = MockCddRepository::new();
+        // Since get_user_by_email doesn't exist, upsert_user handles creating/updating.
+        mock_repo.expect_upsert_user().returning(|_, _, _| {
+            Ok(crate::db::models::User {
+                id: 1,
+                github_id: None,
+                username: "test_gh".to_string(),
+                email: "gh@example.com".to_string(),
+                password_hash: None,
+            })
+        });
+
+        let mut mock_gh = MockGitHubClient::new();
+        mock_gh
+            .expect_exchange_code()
+            .returning(|_| Ok("token".to_string()));
+        mock_gh
+            .expect_get_user()
+            .returning(|_| Err("failed".to_string()));
+        mock_gh.expect_get_emails().returning(|_| {
+            Ok(vec![crate::github::models::GitHubEmail {
+                email: "gh@example.com".to_string(),
+                primary: true,
+                verified: true,
+            }])
+        });
+
+        let config = AppConfig::load(None).expect("expected value");
+        let repo: Arc<dyn CddRepository> = Arc::new(mock_repo);
+        let gh: Arc<dyn GitHubClient> = Arc::new(mock_gh);
+
+        let req = web::Json(OAuthPayload {
+            code: "valid_code".to_string(),
+        });
+        let resp = login_github(
+            req,
+            web::Data::new(repo),
+            web::Data::new(gh),
+            web::Data::new(config),
+        )
+        .await;
+
+        assert!(resp.is_ok());
+    }
+
+    #[actix_web::test]
+    async fn test_register_no_password() {
+        let mut mock_repo = MockCddRepository::new();
+        mock_repo.expect_create_user().returning(|_, _, _, _| {
+            Ok(crate::db::models::User {
+                id: 1,
+                github_id: None,
+                username: "test_user".to_string(),
+                email: "test@example.com".to_string(),
+                password_hash: None,
+            })
+        });
+
+        let config = AppConfig::load(None).expect("expected value");
+        let repo: Arc<dyn CddRepository> = Arc::new(mock_repo);
+
+        let req = web::Json(RegisterPayload {
+            username: "test_user".to_string(),
+            email: "test@example.com".to_string(),
+            password: None,
+        });
+
+        let resp = register(req, web::Data::new(repo), web::Data::new(config)).await;
+        assert!(resp.is_ok());
     }
 
     #[actix_web::test]
