@@ -28,6 +28,12 @@ pub struct AppConfig {
     /// an in-memory no-op repository instead (env: `CDD__OFFLINE_MODE`).
     #[serde(default)]
     pub offline_mode: bool,
+    /// URL for the control-plane backend (env: `CDD__CONTROL_PLANE_URL`).
+    pub control_plane_url: String,
+    /// URL for the docs-ui frontend (env: `CDD__DOCS_UI_URL`).
+    pub docs_ui_url: String,
+    /// URL for the web-ui frontend (env: `CDD__WEB_UI_URL`).
+    pub web_ui_url: String,
     /// Child-process configuration keyed by tool name.
     #[serde(default)]
     pub servers: HashMap<String, ProcessConfig>,
@@ -51,6 +57,12 @@ impl AppConfig {
             .set_default("webhook_secret", "my_webhook_secret")
             .map_err(|e| crate::error::CddGatewayError::Config(e.to_string()))?
             .set_default("offline_mode", false)
+            .map_err(|e| crate::error::CddGatewayError::Config(e.to_string()))?
+            .set_default("control_plane_url", "http://localhost:8081")
+            .map_err(|e| crate::error::CddGatewayError::Config(e.to_string()))?
+            .set_default("docs_ui_url", "http://localhost:8082")
+            .map_err(|e| crate::error::CddGatewayError::Config(e.to_string()))?
+            .set_default("web_ui_url", "http://localhost:8083")
             .map_err(|e| crate::error::CddGatewayError::Config(e.to_string()))?;
 
         if let Some(path) = config_path {

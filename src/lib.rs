@@ -12,6 +12,10 @@ pub mod db;
 pub mod error;
 /// GitHub module
 pub mod github;
+/// Proxy module
+pub mod proxy;
+/// Rate limiting module
+pub mod rate_limit;
 
 pub use config::AppConfig;
 pub use db::repository::{CddRepository, PgRepository};
