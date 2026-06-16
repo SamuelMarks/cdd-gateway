@@ -73,7 +73,8 @@ pub fn setup_test_db() -> Result<PgRepository, TestError> {
     );
     let database_url = std::env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgres://postgres:password@localhost/cdd".to_string());
-    let pool = establish_connection_pool(&database_url);
+    let pool = establish_connection_pool(&database_url)
+        .map_err(|e| TestError::PoolError(e.to_string()))?;
 
     let result = MIGRATION_RESULT.get_or_init(|| {
         let mut conn = pool.get().map_err(|e| e.to_string())?;

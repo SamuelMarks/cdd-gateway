@@ -2,7 +2,7 @@ use std::process::Command;
 
 #[test]
 fn test_main_runs_and_exits() {
-    let output = Command::new("cargo")
+    let _output = Command::new("cargo")
         .arg("run")
         .arg("--")
         .arg("--help")

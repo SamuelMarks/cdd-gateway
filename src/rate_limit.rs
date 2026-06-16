@@ -33,9 +33,12 @@ impl RateLimiter {
 
     /// Check if a request is allowed
     pub fn check(&self, ip: &str) -> bool {
-        let mut reqs = self.requests.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut reqs = self
+            .requests
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let now = Instant::now();
-        let ip_reqs = reqs.entry(ip.to_string()).or_insert_with(Vec::new);
+        let ip_reqs = reqs.entry(ip.to_string()).or_default();
 
         // Remove old requests
         ip_reqs.retain(|&t| now.duration_since(t) < self.window);

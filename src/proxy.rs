@@ -108,14 +108,13 @@ mod tests {
 
     #[actix_web::test]
     async fn test_proxy_handler_success() {
-        use httpmock::MockServer;
         use httpmock::prelude::*;
+        use httpmock::MockServer;
 
         let server = MockServer::start();
 
         let mock = server.mock(|when, then| {
-            when.method(GET)
-                .path("/api/test_success");
+            when.method(GET).path("/api/test_success");
             then.status(200)
                 .header("X-Test-Header", "test_value")
                 .body("Success!");

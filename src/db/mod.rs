@@ -19,9 +19,22 @@ use diesel::r2d2::{self, ConnectionManager};
 pub type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
 /// Establish connection pool for PostgreSQL
-pub fn establish_connection_pool(database_url: &str) -> DbPool {
+pub fn establish_connection_pool(
+    database_url: &str,
+) -> Result<DbPool, crate::error::CddGatewayError> {
     let manager = ConnectionManager::<PgConnection>::new(database_url);
     r2d2::Pool::builder()
         .build(manager)
-        .expect("Failed to create pool.")
+        .map_err(|e| crate::error::CddGatewayError::Internal(e.to_string()))
+}
+
+#[cfg(test)]
+mod connection_tests {
+    use super::*;
+
+    #[test]
+    fn test_establish_connection_pool_invalid_url() {
+        let result = establish_connection_pool("invalid_url");
+        assert!(result.is_err());
+    }
 }

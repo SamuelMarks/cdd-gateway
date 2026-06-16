@@ -14,7 +14,7 @@ utoipa = { version = "5.3.1", features = ["actix_extras", "uuid", "chrono"] }
 utoipa-swagger-ui = { version = "9.0", features = ["actix-web"] }
 diesel = { version = "2.2", features = ["postgres", "r2d2", "chrono", "uuid"] }
 dotenvy = "0.15"
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", features = ["full", "sync"] }
 reqwest = { version = "0.12", features = ["json", "rustls-tls", "stream"] }
 oauth2 = "4.4"
 chrono = "0.4"

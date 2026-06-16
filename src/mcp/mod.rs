@@ -111,6 +111,21 @@ mod tests {
     }
 
     #[actix_web::test]
+    async fn test_mcp_message_handler_error() {
+        let engine: Arc<dyn McpOrchestrator> = Arc::new(MockEngine);
+        let req_data = serde_json::from_value(json!({
+            "jsonrpc": "2.0",
+            "id": "2",
+            "method": "error"
+        }))
+        .unwrap();
+        let req = web::Json(req_data);
+
+        let result = mcp_message_handler(web::Data::new(engine), req).await;
+        assert!(result.is_err());
+    }
+
+    #[actix_web::test]
     async fn test_configure() {
         let engine: Arc<dyn McpOrchestrator> = Arc::new(MockEngine);
         let app = test::init_service(

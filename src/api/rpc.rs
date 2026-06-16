@@ -389,9 +389,8 @@ mod tests {
     use actix_web::{test, App};
     use once_cell::sync::Lazy;
     use std::sync::Arc;
-    use std::sync::Mutex;
 
-    static ENV_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+    static ENV_MUTEX: Lazy<tokio::sync::Mutex<()>> = Lazy::new(|| tokio::sync::Mutex::new(()));
     #[actix_web::test]
     async fn test_rpc_handler_version() {
         let repo = MockCddRepository::new();
@@ -1033,7 +1032,7 @@ mod tests {
         )
         .await;
 
-        let _lock = ENV_MUTEX.lock().unwrap();
+        let _lock = ENV_MUTEX.lock().await;
         std::env::set_var("WASM_EXECUTION_MODE", "1");
 
         let req = test::TestRequest::post()
@@ -1174,7 +1173,7 @@ mod tests {
         )
         .await;
 
-        let _lock = ENV_MUTEX.lock().unwrap();
+        let _lock = ENV_MUTEX.lock().await;
         std::env::set_var("WASM_EXECUTION_MODE", "1");
 
         let req = test::TestRequest::post()
@@ -1335,7 +1334,7 @@ mod tests {
         )
         .await;
 
-        let _lock = ENV_MUTEX.lock().unwrap();
+        let _lock = ENV_MUTEX.lock().await;
         std::env::set_var("WASM_EXECUTION_MODE", "1");
         let req = test::TestRequest::post()
             .uri("/rpc")
@@ -1404,7 +1403,7 @@ mod tests {
         )
         .await;
 
-        let _lock = ENV_MUTEX.lock().unwrap();
+        let _lock = ENV_MUTEX.lock().await;
         std::env::set_var("WASM_EXECUTION_MODE", "1");
         let req = test::TestRequest::post()
             .uri("/rpc")
@@ -1441,7 +1440,7 @@ mod tests {
         )
         .await;
 
-        let _lock = ENV_MUTEX.lock().unwrap();
+        let _lock = ENV_MUTEX.lock().await;
         std::env::set_var("WASM_EXECUTION_MODE", "1");
 
         let req = test::TestRequest::post()
@@ -1511,7 +1510,7 @@ mod tests {
         )
         .await;
 
-        let _lock = ENV_MUTEX.lock().unwrap();
+        let _lock = ENV_MUTEX.lock().await;
         std::env::set_var("WASM_EXECUTION_MODE", "1");
 
         let req = test::TestRequest::post()
@@ -1548,7 +1547,7 @@ mod tests {
         )
         .await;
 
-        let _lock = ENV_MUTEX.lock().unwrap();
+        let _lock = ENV_MUTEX.lock().await;
         std::env::set_var("WASM_EXECUTION_MODE", "1");
 
         let req = test::TestRequest::post()
@@ -1582,7 +1581,7 @@ mod tests {
         )
         .await;
 
-        let _lock = ENV_MUTEX.lock().unwrap();
+        let _lock = ENV_MUTEX.lock().await;
         std::env::set_var("WASM_EXECUTION_MODE", "1");
 
         let req = test::TestRequest::post()
@@ -1620,7 +1619,7 @@ mod tests {
         )
         .await;
 
-        let _lock = ENV_MUTEX.lock().unwrap();
+        let _lock = ENV_MUTEX.lock().await;
         std::env::set_var("WASM_EXECUTION_MODE", "1");
 
         // Use a path that does not exist to force canonicalize() to fail and hit the fallback closure.
@@ -1657,7 +1656,7 @@ mod tests {
         )
         .await;
 
-        let _lock = ENV_MUTEX.lock().unwrap();
+        let _lock = ENV_MUTEX.lock().await;
         std::env::set_var("WASM_EXECUTION_MODE", "1");
 
         // Use an input that has no parent to hit the parent() fallback closure.

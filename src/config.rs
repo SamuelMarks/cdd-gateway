@@ -160,4 +160,22 @@ mod tests {
         assert!(result.is_err());
         std::env::remove_var("CDD__OFFLINE_MODE");
     }
+
+    #[test]
+    fn test_config_derives() {
+        let _lock = ENV_MUTEX.lock().unwrap();
+        let cfg = AppConfig::load(None).unwrap();
+
+        let cloned = cfg.clone();
+        assert_eq!(cfg.server_bind, cloned.server_bind);
+
+        let dbg = format!("{:?}", cfg);
+        assert!(dbg.contains("AppConfig"));
+
+        let ser = serde_json::to_string(&cfg).unwrap();
+        assert!(ser.contains("0.0.0.0:8080"));
+
+        let de: AppConfig = serde_json::from_str(&ser).unwrap();
+        assert_eq!(de.server_bind, "0.0.0.0:8080");
+    }
 }
