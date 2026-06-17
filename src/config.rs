@@ -152,19 +152,26 @@ mod tests {
     }
 
     #[test]
-    fn test_config_load_deserialize_error() {
-        let _lock = ENV_MUTEX.lock().unwrap();
+    fn test_config_load_deserialize_error() -> Result<(), Box<dyn std::error::Error>> {
+        let _lock = match ENV_MUTEX.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
         // Set offline_mode to a string that cannot be parsed as a boolean
         std::env::set_var("CDD__OFFLINE_MODE", "not_a_bool");
         let result = AppConfig::load(None);
         assert!(result.is_err());
         std::env::remove_var("CDD__OFFLINE_MODE");
+        Ok(())
     }
 
     #[test]
-    fn test_config_derives() {
-        let _lock = ENV_MUTEX.lock().unwrap();
-        let cfg = AppConfig::load(None).unwrap();
+    fn test_config_derives() -> Result<(), Box<dyn std::error::Error>> {
+        let _lock = match ENV_MUTEX.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        let cfg = AppConfig::load(None)?;
 
         let cloned = cfg.clone();
         assert_eq!(cfg.server_bind, cloned.server_bind);
@@ -172,10 +179,11 @@ mod tests {
         let dbg = format!("{:?}", cfg);
         assert!(dbg.contains("AppConfig"));
 
-        let ser = serde_json::to_string(&cfg).unwrap();
+        let ser = serde_json::to_string(&cfg)?;
         assert!(ser.contains("0.0.0.0:8080"));
 
-        let de: AppConfig = serde_json::from_str(&ser).unwrap();
+        let de: AppConfig = serde_json::from_str(&ser)?;
         assert_eq!(de.server_bind, "0.0.0.0:8080");
+        Ok(())
     }
 }

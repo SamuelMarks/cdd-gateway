@@ -79,50 +79,50 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_mcp_sse_handshake() {
+    async fn test_mcp_sse_handshake() -> Result<(), Box<dyn std::error::Error>> {
         let req = test::TestRequest::default().to_http_request();
         let resp = mcp_sse_handshake().await.respond_to(&req);
         assert_eq!(resp.status(), actix_web::http::StatusCode::OK);
-        assert_eq!(
-            resp.headers().get("Content-Type").unwrap(),
-            "text/event-stream"
-        );
+        if let Some(content_type) = resp.headers().get("Content-Type") {
+            assert_eq!(content_type, "text/event-stream");
+        } else {
+            panic!("Content-Type missing");
+        }
+        Ok(())
     }
 
     #[actix_web::test]
-    async fn test_mcp_message_handler() {
+    async fn test_mcp_message_handler() -> Result<(), Box<dyn std::error::Error>> {
         let engine: Arc<dyn McpOrchestrator> = Arc::new(MockEngine);
         let req_data = serde_json::from_value(json!({
             "jsonrpc": "2.0",
             "id": "1",
             "method": "test"
-        }))
-        .unwrap();
+        }))?;
         let req = web::Json(req_data);
 
-        let resp = mcp_message_handler(web::Data::new(engine), req)
-            .await
-            .unwrap();
+        let resp = mcp_message_handler(web::Data::new(engine), req).await?;
         let http_req = test::TestRequest::default().to_http_request();
         assert_eq!(
             resp.respond_to(&http_req).status(),
             actix_web::http::StatusCode::OK
         );
+        Ok(())
     }
 
     #[actix_web::test]
-    async fn test_mcp_message_handler_error() {
+    async fn test_mcp_message_handler_error() -> Result<(), Box<dyn std::error::Error>> {
         let engine: Arc<dyn McpOrchestrator> = Arc::new(MockEngine);
         let req_data = serde_json::from_value(json!({
             "jsonrpc": "2.0",
             "id": "2",
             "method": "error"
-        }))
-        .unwrap();
+        }))?;
         let req = web::Json(req_data);
 
         let result = mcp_message_handler(web::Data::new(engine), req).await;
         assert!(result.is_err());
+        Ok(())
     }
 
     #[actix_web::test]

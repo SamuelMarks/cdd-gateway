@@ -115,13 +115,12 @@ mod tests {
             CddGatewayError::Config("test".to_string()).status_code(),
             StatusCode::BAD_REQUEST
         );
-        assert_eq!(
-            CddGatewayError::Json(
-                serde_json::from_str::<serde_json::Value>("invalid").unwrap_err()
-            )
-            .status_code(),
-            StatusCode::BAD_REQUEST
-        );
+        if let Err(e) = serde_json::from_str::<serde_json::Value>("invalid") {
+            assert_eq!(
+                CddGatewayError::Json(e).status_code(),
+                StatusCode::BAD_REQUEST
+            );
+        }
 
         assert_eq!(
             CddGatewayError::Unauthorized("test".to_string()).status_code(),
