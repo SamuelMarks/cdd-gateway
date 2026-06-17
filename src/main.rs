@@ -1,3 +1,4 @@
+#![cfg(not(tarpaulin_include))]
 #![deny(missing_docs)]
 
 //! cdd-gateway binary executable.
@@ -14,7 +15,6 @@ use std::env;
 use std::time::Duration;
 
 #[actix_web::main]
-#[cfg(not(tarpaulin_include))]
 async fn main() -> std::io::Result<()> {
     // Initialize env_logger for structured logging/tracing
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));

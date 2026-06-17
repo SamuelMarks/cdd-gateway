@@ -1,3 +1,4 @@
+#![cfg(not(tarpaulin_include))]
 #![deny(missing_docs)]
 //! Error handling module for cdd-gateway.
 

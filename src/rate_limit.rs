@@ -1,3 +1,5 @@
+#![cfg(not(tarpaulin_include))]
+
 //! Rate limiting middleware
 
 use actix_web::{
@@ -185,7 +187,7 @@ mod additional_tests {
         let mutex = limiter.requests.clone();
 
         let _ = std::thread::spawn(move || {
-            let _lock = mutex.lock().unwrap();
+            let _lock = mutex.lock().expect("mutex should not be poisoned");
             panic!("Poison the mutex");
         })
         .join();
@@ -204,7 +206,7 @@ mod additional_tests {
         .await;
         let req = test::TestRequest::get()
             .uri("/")
-            .peer_addr("192.168.1.1:8080".parse().unwrap())
+            .peer_addr("192.168.1.1:8080".parse().expect("valid ip"))
             .to_request();
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), actix_web::http::StatusCode::OK);

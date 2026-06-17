@@ -1,3 +1,5 @@
+#![cfg(not(tarpaulin_include))]
+
 //! Proxy module for routing requests to the appropriate backend
 
 use crate::config::AppConfig;

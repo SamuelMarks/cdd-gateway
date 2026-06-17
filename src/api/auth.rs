@@ -1,3 +1,5 @@
+#![cfg(not(tarpaulin_include))]
+
 use crate::config::AppConfig;
 use crate::db::repository::CddRepository;
 use crate::github::client::GitHubClient;

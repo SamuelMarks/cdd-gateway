@@ -132,7 +132,10 @@ fn verify_signature(secret: &str, payload: &[u8], signature: &str) -> bool {
     }
     let sig_hex = &signature[7..];
 
-    let mut mac = HmacSha256::new_from_slice(secret.as_bytes()).expect("invalid key");
+    let mut mac = match HmacSha256::new_from_slice(secret.as_bytes()) {
+        Ok(m) => m,
+        Err(_) => return false,
+    };
 
     mac.update(payload);
     let result = mac.finalize().into_bytes();

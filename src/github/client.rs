@@ -108,29 +108,31 @@ struct CreateSecretRequest<'a> {
 
 impl ReqwestGitHubClient {
     /// Create a new ReqwestGitHubClient
-    pub fn new(client_id: String, client_secret: String) -> Self {
-        let mut headers = header::HeaderMap::new();
+    pub fn new(
+        client_id: String,
+        client_secret: String,
+    ) -> Result<Self, crate::error::CddGatewayError> {
+        let mut headers = reqwest::header::HeaderMap::new();
         headers.insert(
-            header::USER_AGENT,
-            header::HeaderValue::from_static("cdd-ctl"),
+            reqwest::header::USER_AGENT,
+            reqwest::header::HeaderValue::from_static("cdd-gateway"),
         );
         headers.insert(
-            header::ACCEPT,
-            header::HeaderValue::from_static("application/vnd.github.v3+json"),
+            reqwest::header::ACCEPT,
+            reqwest::header::HeaderValue::from_static("application/vnd.github.v3+json"),
         );
 
         let client = Client::builder()
             .default_headers(headers)
             .timeout(std::time::Duration::from_secs(10))
             .connect_timeout(std::time::Duration::from_secs(5))
-            .build()
-            .expect("Failed to build reqwest client");
+            .build()?;
 
-        Self {
+        Ok(Self {
             client,
             client_id,
             client_secret,
-        }
+        })
     }
 
     fn map_err(e: reqwest::Error) -> String {
@@ -338,48 +340,55 @@ mod tests {
 
     #[actix_web::test]
     async fn test_new_client() {
-        let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string());
+        let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string())
+            .expect("valid test client");
         assert_eq!(client.client_id, "id");
     }
 
     #[actix_web::test]
     async fn test_get_user() {
-        let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string());
+        let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string())
+            .expect("valid test client");
         let res = client.get_user("bad_token").await;
         assert!(res.is_err());
     }
 
     #[actix_web::test]
     async fn test_get_user_emails() {
-        let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string());
+        let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string())
+            .expect("valid test client");
         let res = client.get_emails("bad_token").await;
         assert!(res.is_err());
     }
 
     #[actix_web::test]
     async fn test_exchange_code() {
-        let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string());
+        let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string())
+            .expect("valid test client");
         let res = client.exchange_code("bad_code").await;
         assert!(res.is_err());
     }
 
     #[actix_web::test]
     async fn test_list_orgs() {
-        let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string());
+        let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string())
+            .expect("valid test client");
         let res = client.list_orgs("bad_token").await;
         assert!(res.is_err());
     }
 
     #[actix_web::test]
     async fn test_list_repos() {
-        let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string());
+        let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string())
+            .expect("valid test client");
         let res = client.list_repos("org", "bad_token").await;
         assert!(res.is_err());
     }
 
     #[actix_web::test]
     async fn test_get_repo_public_key() {
-        let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string());
+        let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string())
+            .expect("valid test client");
         let res = client
             .get_repo_public_key("owner", "repo", "bad_token")
             .await;
@@ -388,7 +397,8 @@ mod tests {
 
     #[actix_web::test]
     async fn test_create_repo_secret() {
-        let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string());
+        let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string())
+            .expect("valid test client");
         let res = client
             .create_repo_secret("owner", "repo", "key", "val", "kid", "bad_token")
             .await;
@@ -397,7 +407,8 @@ mod tests {
 
     #[actix_web::test]
     async fn test_trigger_workflow() {
-        let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string());
+        let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string())
+            .expect("valid test client");
         let res = client
             .trigger_workflow("owner", "repo", "wf", "ref", "bad_token")
             .await;
@@ -406,7 +417,8 @@ mod tests {
 
     #[actix_web::test]
     async fn test_create_release() {
-        let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string());
+        let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string())
+            .expect("valid test client");
         let res = client
             .create_release("token", "owner", "repo", "tag", None, None)
             .await;
