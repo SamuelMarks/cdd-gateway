@@ -14,7 +14,7 @@ pub async fn proxy_handler(
     let path = req.uri().path();
     let query = req.uri().query().unwrap_or("");
 
-    let base_url = if path.starts_with("/api/") {
+    let base_url = if path.starts_with("/api/") || path.starts_with("/auth/") {
         &config.control_plane_url
     } else if path.starts_with("/u/") {
         &config.docs_ui_url
@@ -96,6 +96,10 @@ mod tests {
         let req = test::TestRequest::get().uri("/api/test").to_request();
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), actix_web::http::StatusCode::BAD_GATEWAY);
+
+        let req_auth = test::TestRequest::get().uri("/auth/login").to_request();
+        let resp_auth = test::call_service(&app, req_auth).await;
+        assert_eq!(resp_auth.status(), actix_web::http::StatusCode::BAD_GATEWAY);
 
         let req = test::TestRequest::get().uri("/u/test?q=1").to_request();
         let resp = test::call_service(&app, req).await;
