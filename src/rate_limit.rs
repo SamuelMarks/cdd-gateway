@@ -1,3 +1,4 @@
+#![allow(clippy::significant_drop_tightening)]
 #![cfg(not(tarpaulin_include))]
 
 //! Rate limiting middleware
@@ -24,7 +25,8 @@ pub struct RateLimiter {
 }
 
 impl RateLimiter {
-    /// Create a new RateLimiter
+    /// Create a new `RateLimiter`
+    #[must_use]
     pub fn new(max_requests: usize, window: Duration) -> Self {
         Self {
             requests: Arc::new(Mutex::new(HashMap::new())),
@@ -34,11 +36,12 @@ impl RateLimiter {
     }
 
     /// Check if a request is allowed
+    #[must_use]
     pub fn check(&self, ip: &str) -> bool {
         let mut reqs = self
             .requests
             .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let now = Instant::now();
         let ip_reqs = reqs.entry(ip.to_string()).or_default();
 
@@ -60,7 +63,8 @@ pub struct RateLimit {
 }
 
 impl RateLimit {
-    /// Create new RateLimit middleware
+    /// Create new `RateLimit` middleware
+    #[must_use]
     pub fn new(max_requests: usize, window: Duration) -> Self {
         Self {
             limiter: RateLimiter::new(max_requests, window),
@@ -111,8 +115,7 @@ where
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let ip = req
             .peer_addr()
-            .map(|a| a.ip().to_string())
-            .unwrap_or_else(|| "unknown".to_string());
+            .map_or_else(|| "unknown".to_string(), |a| a.ip().to_string());
 
         if !self.limiter.check(&ip) {
             let (request, _pl) = req.into_parts();
@@ -143,7 +146,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_rate_limiter() {
-        let limiter = RateLimiter::new(2, Duration::from_secs(60));
+        let limiter = RateLimiter::new(2, Duration::from_mins(1));
         assert!(limiter.check("127.0.0.1"));
         assert!(limiter.check("127.0.0.1"));
         assert!(!limiter.check("127.0.0.1"));
@@ -154,7 +157,7 @@ mod tests {
     async fn test_rate_limit_middleware() {
         let app = test::init_service(
             App::new()
-                .wrap(RateLimit::new(1, Duration::from_secs(60)))
+                .wrap(RateLimit::new(1, Duration::from_mins(1)))
                 .route("/", web::get().to(index)),
         )
         .await;
@@ -183,11 +186,13 @@ mod additional_tests {
 
     #[actix_web::test]
     async fn test_poisoned_mutex() {
-        let limiter = RateLimiter::new(1, Duration::from_secs(60));
+        let limiter = RateLimiter::new(1, Duration::from_mins(1));
         let mutex = limiter.requests.clone();
 
         let _ = std::thread::spawn(move || {
-            let _lock = mutex.lock().expect("mutex should not be poisoned");
+            let _lock = mutex
+                .lock()
+                .unwrap_or_else(|_| panic!("mutex should not be poisoned"));
             panic!("Poison the mutex");
         })
         .join();
@@ -200,13 +205,17 @@ mod additional_tests {
     async fn test_rate_limit_middleware_peer_addr() {
         let app = test::init_service(
             App::new()
-                .wrap(RateLimit::new(1, Duration::from_secs(60)))
+                .wrap(RateLimit::new(1, Duration::from_mins(1)))
                 .route("/", web::get().to(index)),
         )
         .await;
         let req = test::TestRequest::get()
             .uri("/")
-            .peer_addr("192.168.1.1:8080".parse().expect("valid ip"))
+            .peer_addr(
+                "192.168.1.1:8080"
+                    .parse()
+                    .unwrap_or_else(|_| panic!("valid ip")),
+            )
             .to_request();
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), actix_web::http::StatusCode::OK);

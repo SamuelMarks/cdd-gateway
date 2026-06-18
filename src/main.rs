@@ -24,7 +24,7 @@ async fn main() -> std::io::Result<()> {
     let config = match AppConfig::load(config_path.as_deref()) {
         Ok(c) => c,
         Err(e) => {
-            log::error!("Failed to load configuration: {}", e);
+            log::error!("Failed to load configuration: {e}");
             std::process::exit(1);
         }
     };
@@ -35,7 +35,7 @@ async fn main() -> std::io::Result<()> {
     let client = match Client::builder().build() {
         Ok(c) => c,
         Err(e) => {
-            log::error!("Failed to build reqwest client: {}", e);
+            log::error!("Failed to build reqwest client: {e}");
             std::process::exit(1);
         }
     };
@@ -43,7 +43,7 @@ async fn main() -> std::io::Result<()> {
     let config_data = web::Data::new(config.clone());
     let client_data = web::Data::new(client);
 
-    log::info!("Starting CDD Gateway on {}", server_bind);
+    log::info!("Starting CDD Gateway on {server_bind}");
 
     HttpServer::new(move || {
         let cors = Cors::default()
@@ -58,7 +58,7 @@ async fn main() -> std::io::Result<()> {
 
         App::new()
             .wrap(cors)
-            .wrap(RateLimit::new(100, Duration::from_secs(60)))
+            .wrap(RateLimit::new(100, Duration::from_mins(1)))
             // Structured tracing/logging for incoming requests
             .wrap(middleware::Logger::default())
             .app_data(config_data.clone())

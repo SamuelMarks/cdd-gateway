@@ -26,6 +26,8 @@ pub async fn mcp_sse_handshake() -> impl Responder {
 }
 
 /// Handle incoming POST messages on the MCP transport.
+/// # Errors
+/// error
 pub async fn mcp_message_handler(
     engine: web::Data<Arc<dyn McpOrchestrator>>,
     req: web::Json<McpRequest>,

@@ -7,6 +7,9 @@ use actix_web::{web, Error, HttpRequest, HttpResponse};
 use reqwest::Client;
 
 /// Proxy handler to forward requests to the appropriate backend
+/// # Errors
+/// error
+#[allow(clippy::future_not_send)]
 pub async fn proxy_handler(
     req: HttpRequest,
     bytes: web::Bytes,
@@ -24,7 +27,7 @@ pub async fn proxy_handler(
         &config.web_ui_url
     };
 
-    let mut url = format!("{}{}", base_url, path);
+    let mut url = format!("{base_url}{path}");
     if !query.is_empty() {
         url.push('?');
         url.push_str(query);
@@ -45,7 +48,7 @@ pub async fn proxy_handler(
     let proxy_resp = match proxy_req.body(bytes).send().await {
         Ok(res) => res,
         Err(e) => {
-            log::error!("Proxy request failed: {}", e);
+            log::error!("Proxy request failed: {e}");
             return Ok(HttpResponse::BadGateway().body("Bad Gateway"));
         }
     };
@@ -74,16 +77,16 @@ mod tests {
     #[actix_web::test]
     async fn test_proxy_handler() {
         let config = AppConfig {
-            database_url: "".into(),
-            server_bind: "".into(),
-            jwt_secret: "".into(),
-            webhook_secret: "".into(),
+            database_url: String::new(),
+            server_bind: String::new(),
+            jwt_secret: String::new(),
+            webhook_secret: String::new(),
             github_token: None,
             offline_mode: true,
             control_plane_url: "http://127.0.0.1:0".into(),
             docs_ui_url: "http://127.0.0.1:0".into(),
             web_ui_url: "http://127.0.0.1:0".into(),
-            servers: Default::default(),
+            servers: std::collections::HashMap::default(),
         };
         let client = Client::new();
 
@@ -127,16 +130,16 @@ mod tests {
         });
 
         let config = AppConfig {
-            database_url: "".into(),
-            server_bind: "".into(),
-            jwt_secret: "".into(),
-            webhook_secret: "".into(),
+            database_url: String::new(),
+            server_bind: String::new(),
+            jwt_secret: String::new(),
+            webhook_secret: String::new(),
             github_token: None,
             offline_mode: true,
             control_plane_url: server.base_url(),
             docs_ui_url: server.base_url(),
             web_ui_url: server.base_url(),
-            servers: Default::default(),
+            servers: std::collections::HashMap::default(),
         };
         let client = Client::new();
 

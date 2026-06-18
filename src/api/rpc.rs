@@ -27,7 +27,7 @@ pub struct RpcRequest {
 }
 
 /// A JSON-RPC 2.0 Error object
-#[derive(Serialize, Deserialize, Debug, PartialEq, ToSchema)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, ToSchema)]
 pub struct RpcError {
     /// Error code
     pub code: i32,
@@ -55,6 +55,7 @@ pub struct RpcResponse {
 
 impl RpcResponse {
     /// Create a success response
+    #[must_use]
     pub fn success(result: serde_json::Value, id: Option<serde_json::Value>) -> Self {
         Self {
             jsonrpc: "2.0".to_string(),
@@ -65,6 +66,7 @@ impl RpcResponse {
     }
 
     /// Create an error response
+    #[must_use]
     pub fn error(code: i32, message: String, id: Option<serde_json::Value>) -> Self {
         Self {
             jsonrpc: "2.0".to_string(),
@@ -87,6 +89,9 @@ impl RpcResponse {
         ("bearer_auth" = [])
     )
 )]
+/// # Panics
+/// Panics on json error
+#[allow(clippy::too_many_lines)]
 pub async fn rpc_handler(
     req: web::Json<RpcRequest>,
     repo: web::Data<Arc<dyn CddRepository>>,
@@ -106,7 +111,7 @@ pub async fn rpc_handler(
                 version: env!("CARGO_PKG_VERSION").to_string(),
             };
             HttpResponse::Ok().json(RpcResponse::success(
-                serde_json::to_value(res).expect("expected value"),
+                serde_json::to_value(res).unwrap_or_else(|_| panic!("expected value")),
                 req.id.clone(),
             ))
         }
@@ -120,7 +125,7 @@ pub async fn rpc_handler(
             let target = if target_language.starts_with("cdd-") {
                 target_language.to_string()
             } else {
-                format!("cdd-{}", target_language)
+                format!("cdd-{target_language}")
             };
 
             let is_wasm = std::env::var("WASM_EXECUTION_MODE").unwrap_or_default() == "1";
@@ -131,11 +136,11 @@ pub async fn rpc_handler(
                 .unwrap_or("");
             let no_imports = params
                 .and_then(|p| p.get("no_imports"))
-                .and_then(|v| v.as_bool())
+                .and_then(serde_json::Value::as_bool)
                 .unwrap_or(false);
             let no_wrapping = params
                 .and_then(|p| p.get("no_wrapping"))
-                .and_then(|v| v.as_bool())
+                .and_then(serde_json::Value::as_bool)
                 .unwrap_or(false);
 
             if input.is_empty() {
@@ -167,7 +172,7 @@ pub async fn rpc_handler(
                 .await
                 {
                     Ok(res) => res,
-                    Err(e) => Err(format!("Task failed: {}", e)),
+                    Err(e) => Err(format!("Task failed: {e}")),
                 }
             } else {
                 let mut cmd = std::process::Command::new(&target);
@@ -188,7 +193,7 @@ pub async fn rpc_handler(
                         }
                     }
                     Ok(Err(e)) => Err(e.to_string()),
-                    Err(e) => Err(format!("Task failed: {}", e)),
+                    Err(e) => Err(format!("Task failed: {e}")),
                 }
             };
 
@@ -206,7 +211,7 @@ pub async fn rpc_handler(
                 }
                 Err(e) => HttpResponse::InternalServerError().json(RpcResponse::error(
                     500,
-                    format!("Failed to execute '{}': {}", target, e),
+                    format!("Failed to execute '{target}': {e}"),
                     req.id.clone(),
                 )),
             }
@@ -215,8 +220,8 @@ pub async fn rpc_handler(
             let params = req.params.as_ref().and_then(|p| p.as_object());
             let org_id = params
                 .and_then(|p| p.get("org_id"))
-                .and_then(|v| v.as_i64())
-                .map(|v| v as i32);
+                .and_then(serde_json::Value::as_i64)
+                .and_then(|v| i32::try_from(v).ok());
             let Some(org_id) = org_id else {
                 return HttpResponse::Ok().json(RpcResponse::error(
                     -32602,
@@ -226,17 +231,17 @@ pub async fn rpc_handler(
             };
             match repo.get_organization(org_id).await {
                 Ok(Some(org)) => HttpResponse::Ok().json(RpcResponse::success(
-                    serde_json::to_value(org).expect("expected value"),
+                    serde_json::to_value(org).unwrap_or_else(|_| panic!("expected value")),
                     req.id.clone(),
                 )),
                 Ok(None) => HttpResponse::Ok().json(RpcResponse::error(
                     404,
-                    format!("Organization {} not found", org_id),
+                    format!("Organization {org_id} not found"),
                     req.id.clone(),
                 )),
                 Err(e) => HttpResponse::Ok().json(RpcResponse::error(
                     500,
-                    format!("DB error: {}", e),
+                    format!("DB error: {e}"),
                     req.id.clone(),
                 )),
             }
@@ -245,8 +250,8 @@ pub async fn rpc_handler(
             let params = req.params.as_ref().and_then(|p| p.as_object());
             let repo_id = params
                 .and_then(|p| p.get("repo_id"))
-                .and_then(|v| v.as_i64())
-                .map(|v| v as i32);
+                .and_then(serde_json::Value::as_i64)
+                .and_then(|v| i32::try_from(v).ok());
             let Some(repo_id) = repo_id else {
                 return HttpResponse::Ok().json(RpcResponse::error(
                     -32602,
@@ -256,17 +261,17 @@ pub async fn rpc_handler(
             };
             match repo.get_repository(repo_id).await {
                 Ok(Some(r)) => HttpResponse::Ok().json(RpcResponse::success(
-                    serde_json::to_value(r).expect("expected value"),
+                    serde_json::to_value(r).unwrap_or_else(|_| panic!("expected value")),
                     req.id.clone(),
                 )),
                 Ok(None) => HttpResponse::Ok().json(RpcResponse::error(
                     404,
-                    format!("Repository {} not found", repo_id),
+                    format!("Repository {repo_id} not found"),
                     req.id.clone(),
                 )),
                 Err(e) => HttpResponse::Ok().json(RpcResponse::error(
                     500,
-                    format!("DB error: {}", e),
+                    format!("DB error: {e}"),
                     req.id.clone(),
                 )),
             }
@@ -275,12 +280,12 @@ pub async fn rpc_handler(
             let params = req.params.as_ref().and_then(|p| p.as_object());
             let org_id = params
                 .and_then(|p| p.get("org_id"))
-                .and_then(|v| v.as_i64())
-                .map(|v| v as i32);
+                .and_then(serde_json::Value::as_i64)
+                .and_then(|v| i32::try_from(v).ok());
             let user_id = params
                 .and_then(|p| p.get("user_id"))
-                .and_then(|v| v.as_i64())
-                .map(|v| v as i32);
+                .and_then(serde_json::Value::as_i64)
+                .and_then(|v| i32::try_from(v).ok());
             let (Some(org_id), Some(user_id)) = (org_id, user_id) else {
                 return HttpResponse::Ok().json(RpcResponse::error(
                     -32602,
@@ -295,12 +300,12 @@ pub async fn rpc_handler(
                 )),
                 Ok(None) => HttpResponse::Ok().json(RpcResponse::error(
                     404,
-                    format!("User {} has no role in org {}", user_id, org_id),
+                    format!("User {user_id} has no role in org {org_id}"),
                     req.id.clone(),
                 )),
                 Err(e) => HttpResponse::Ok().json(RpcResponse::error(
                     500,
-                    format!("DB error: {}", e),
+                    format!("DB error: {e}"),
                     req.id.clone(),
                 )),
             }
@@ -310,7 +315,7 @@ pub async fn rpc_handler(
             let login = params
                 .and_then(|p| p.get("login"))
                 .and_then(|v| v.as_str())
-                .map(|s| s.to_string());
+                .map(std::string::ToString::to_string);
             let Some(login) = login else {
                 return HttpResponse::Ok().json(RpcResponse::error(
                     -32602,
@@ -321,15 +326,15 @@ pub async fn rpc_handler(
             let description = params
                 .and_then(|p| p.get("description"))
                 .and_then(|v| v.as_str())
-                .map(|s| s.to_string());
+                .map(std::string::ToString::to_string);
             match repo.create_organization(None, login, description).await {
                 Ok(org) => HttpResponse::Ok().json(RpcResponse::success(
-                    serde_json::to_value(org).expect("expected value"),
+                    serde_json::to_value(org).unwrap_or_else(|_| panic!("expected value")),
                     req.id.clone(),
                 )),
                 Err(e) => HttpResponse::Ok().json(RpcResponse::error(
                     500,
-                    format!("DB error: {}", e),
+                    format!("DB error: {e}"),
                     req.id.clone(),
                 )),
             }
@@ -338,12 +343,12 @@ pub async fn rpc_handler(
             let params = req.params.as_ref().and_then(|p| p.as_object());
             let org_id = params
                 .and_then(|p| p.get("org_id"))
-                .and_then(|v| v.as_i64())
-                .map(|v| v as i32);
+                .and_then(serde_json::Value::as_i64)
+                .and_then(|v| i32::try_from(v).ok());
             let name = params
                 .and_then(|p| p.get("name"))
                 .and_then(|v| v.as_str())
-                .map(|s| s.to_string());
+                .map(std::string::ToString::to_string);
             let (Some(org_id), Some(name)) = (org_id, name) else {
                 return HttpResponse::Ok().json(RpcResponse::error(
                     -32602,
@@ -354,18 +359,18 @@ pub async fn rpc_handler(
             let description = params
                 .and_then(|p| p.get("description"))
                 .and_then(|v| v.as_str())
-                .map(|s| s.to_string());
+                .map(std::string::ToString::to_string);
             match repo
                 .create_repository(org_id, None, name, description)
                 .await
             {
                 Ok(r) => HttpResponse::Ok().json(RpcResponse::success(
-                    serde_json::to_value(r).expect("expected value"),
+                    serde_json::to_value(r).unwrap_or_else(|_| panic!("expected value")),
                     req.id.clone(),
                 )),
                 Err(e) => HttpResponse::Ok().json(RpcResponse::error(
                     500,
-                    format!("DB error: {}", e),
+                    format!("DB error: {e}"),
                     req.id.clone(),
                 )),
             }
@@ -389,10 +394,11 @@ mod tests {
     use crate::db::repository::MockCddRepository;
     use crate::github::client::MockGitHubClient;
     use actix_web::{test, App};
-    use once_cell::sync::Lazy;
+
     use std::sync::Arc;
 
-    static ENV_MUTEX: Lazy<tokio::sync::Mutex<()>> = Lazy::new(|| tokio::sync::Mutex::new(()));
+    static ENV_MUTEX: std::sync::LazyLock<tokio::sync::Mutex<()>> =
+        std::sync::LazyLock::new(|| tokio::sync::Mutex::new(()));
     #[actix_web::test]
     async fn test_rpc_handler_version() {
         let repo = MockCddRepository::new();
@@ -444,7 +450,10 @@ mod tests {
             .to_request();
 
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
-        assert_eq!(resp.error.expect("expected value").code, -32600);
+        assert_eq!(
+            resp.error.unwrap_or_else(|| panic!("expected value")).code,
+            -32600
+        );
     }
 
     #[actix_web::test]
@@ -470,7 +479,10 @@ mod tests {
             .to_request();
 
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
-        assert_eq!(resp.error.expect("expected value").code, -32601);
+        assert_eq!(
+            resp.error.unwrap_or_else(|| panic!("expected value")).code,
+            -32601
+        );
     }
 
     #[actix_web::test]
@@ -555,7 +567,10 @@ mod tests {
             })
             .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
-        assert_eq!(resp.error.expect("expected value").code, -32602);
+        assert_eq!(
+            resp.error.unwrap_or_else(|| panic!("expected value")).code,
+            -32602
+        );
     }
 
     #[actix_web::test]
@@ -580,7 +595,10 @@ mod tests {
             })
             .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
-        assert_eq!(resp.error.expect("expected value").code, 404);
+        assert_eq!(
+            resp.error.unwrap_or_else(|| panic!("expected value")).code,
+            404
+        );
     }
 
     #[actix_web::test]
@@ -664,7 +682,10 @@ mod tests {
             })
             .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
-        assert_eq!(resp.error.expect("expected value").code, -32602);
+        assert_eq!(
+            resp.error.unwrap_or_else(|| panic!("expected value")).code,
+            -32602
+        );
     }
 
     #[actix_web::test]
@@ -689,7 +710,10 @@ mod tests {
             })
             .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
-        assert_eq!(resp.error.expect("expected value").code, 404);
+        assert_eq!(
+            resp.error.unwrap_or_else(|| panic!("expected value")).code,
+            404
+        );
     }
 
     #[actix_web::test]
@@ -742,7 +766,10 @@ mod tests {
             .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
         assert!(resp.result.is_some());
-        assert_eq!(resp.result.expect("expected value")["role"], "owner");
+        assert_eq!(
+            resp.result.unwrap_or_else(|| panic!("expected value"))["role"],
+            "owner"
+        );
     }
 
     #[actix_web::test]
@@ -766,7 +793,10 @@ mod tests {
             })
             .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
-        assert_eq!(resp.error.expect("expected value").code, -32602);
+        assert_eq!(
+            resp.error.unwrap_or_else(|| panic!("expected value")).code,
+            -32602
+        );
     }
 
     #[actix_web::test]
@@ -791,7 +821,10 @@ mod tests {
             })
             .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
-        assert_eq!(resp.error.expect("expected value").code, 404);
+        assert_eq!(
+            resp.error.unwrap_or_else(|| panic!("expected value")).code,
+            404
+        );
     }
 
     #[actix_web::test]
@@ -874,7 +907,10 @@ mod tests {
             })
             .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
-        assert_eq!(resp.error.expect("expected value").code, -32602);
+        assert_eq!(
+            resp.error.unwrap_or_else(|| panic!("expected value")).code,
+            -32602
+        );
     }
 
     #[actix_web::test]
@@ -958,7 +994,10 @@ mod tests {
             })
             .to_request();
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
-        assert_eq!(resp.error.expect("expected value").code, -32602);
+        assert_eq!(
+            resp.error.unwrap_or_else(|| panic!("expected value")).code,
+            -32602
+        );
     }
 
     #[actix_web::test]
@@ -1494,7 +1533,10 @@ mod tests {
 
         let resp: RpcResponse = test::call_and_read_body_json(&app, req).await;
         // The process succeeds but JSON is invalid. We should hit the line 208-209.
-        assert_eq!(resp.error.expect("expected value").code, 500);
+        assert_eq!(
+            resp.error.unwrap_or_else(|| panic!("expected value")).code,
+            500
+        );
     }
 
     #[actix_web::test]
@@ -1716,6 +1758,9 @@ mod tests {
         // output.stdout is empty.
         // serde_json::from_str("") fails.
         // Hits else block for Invalid JSON generated by target
-        assert_eq!(resp.error.expect("expected value").code, 500);
+        assert_eq!(
+            resp.error.unwrap_or_else(|| panic!("expected value")).code,
+            500
+        );
     }
 }

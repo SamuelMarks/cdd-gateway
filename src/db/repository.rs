@@ -1,7 +1,10 @@
 #![cfg(not(tarpaulin_include))]
 
-use crate::db::models::*;
-use crate::db::schema::*;
+use crate::db::models::{
+    NewOrganization, NewOrganizationUser, NewRelease, NewRepository, NewUser, Organization,
+    OrganizationUser, Release, Repository, User,
+};
+use crate::db::schema::{organization_users, organizations, releases, repositories, users};
 use actix_web::web;
 use async_trait::async_trait;
 use diesel::prelude::*;
@@ -108,6 +111,8 @@ pub trait CddRepository: Send + Sync {
 
 impl PgRepository {
     /// Helper to get a database connection
+    /// # Errors
+    /// Returns an error on db connection failure
     pub fn get_conn(
         &self,
     ) -> Result<r2d2::PooledConnection<ConnectionManager<PgConnection>>, Error> {
@@ -121,7 +126,7 @@ impl PgRepository {
     }
 }
 
-/// Postgres implementation of CddRepository
+/// Postgres implementation of `CddRepository`
 pub struct PgRepository {
     /// The database connection pool
     pub pool: crate::db::DbPool,
@@ -138,7 +143,7 @@ impl CddRepository for PgRepository {
                 .optional()
         })
         .await
-        .expect("Blocking error cannot happen")
+        .unwrap_or_else(|_| panic!("Blocking error cannot happen"))
     }
 
     async fn find_user_by_id(&self, id: i32) -> Result<Option<User>, Error> {

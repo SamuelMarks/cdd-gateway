@@ -42,21 +42,21 @@ pub enum TestError {
 #[cfg(test)]
 impl From<diesel::result::Error> for TestError {
     fn from(err: diesel::result::Error) -> Self {
-        TestError::DbError(err)
+        Self::DbError(err)
     }
 }
 
 #[cfg(test)]
 impl From<std::env::VarError> for TestError {
     fn from(err: std::env::VarError) -> Self {
-        TestError::EnvError(err)
+        Self::EnvError(err)
     }
 }
 
 #[cfg(test)]
 impl From<std::time::SystemTimeError> for TestError {
     fn from(err: std::time::SystemTimeError) -> Self {
-        TestError::TimeError(err)
+        Self::TimeError(err)
     }
 }
 
@@ -64,6 +64,8 @@ impl From<std::time::SystemTimeError> for TestError {
 impl std::error::Error for TestError {}
 
 #[cfg(test)]
+/// # Errors
+/// error
 pub fn setup_test_db() -> Result<PgRepository, TestError> {
     static MIGRATION_RESULT: std::sync::OnceLock<Result<(), String>> = std::sync::OnceLock::new();
 
@@ -79,7 +81,7 @@ pub fn setup_test_db() -> Result<PgRepository, TestError> {
     let result = MIGRATION_RESULT.get_or_init(|| {
         let mut conn = pool.get().map_err(|e| e.to_string())?;
         if let Err(e) = conn.run_pending_migrations(MIGRATIONS) {
-            log::warn!("Migration warning: {}", e);
+            log::warn!("Migration warning: {e}");
         }
         Ok(())
     });

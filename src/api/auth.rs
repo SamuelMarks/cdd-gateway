@@ -55,7 +55,10 @@ fn generate_token(
 ) -> Result<String, crate::error::CddGatewayError> {
     let claims = crate::api::auth_middleware::Claims {
         sub: user_id,
-        exp: (chrono::Utc::now() + chrono::Duration::hours(24)).timestamp() as usize,
+        exp: (chrono::Utc::now() + chrono::Duration::hours(24))
+            .timestamp()
+            .try_into()
+            .unwrap_or(0),
         username: username.to_string(),
     };
     Ok(encode(
@@ -73,13 +76,11 @@ fn hash_password(password: &str) -> Result<String, crate::error::CddGatewayError
 }
 
 fn verify_password(password: &str, hash: &str) -> bool {
-    if let Ok(parsed_hash) = PasswordHash::new(hash) {
+    PasswordHash::new(hash).is_ok_and(|parsed_hash| {
         Argon2::default()
             .verify_password(password.as_bytes(), &parsed_hash)
             .is_ok()
-    } else {
-        false
-    }
+    })
 }
 
 /// Register a new user
@@ -92,6 +93,10 @@ fn verify_password(password: &str, hash: &str) -> bool {
         (status = 400, description = "Bad Request")
     )
 )]
+/// # Errors
+/// Returns an error on database failure
+/// # Panics
+/// panics
 pub async fn register(
     payload: web::Json<RegisterPayload>,
     repo: web::Data<Arc<dyn CddRepository>>,
@@ -127,6 +132,10 @@ pub async fn register(
         (status = 401, description = "Unauthorized")
     )
 )]
+/// # Errors
+/// Returns an error on database failure
+/// # Panics
+/// panics
 pub async fn login_password(
     payload: web::Json<LoginPayload>,
     repo: web::Data<Arc<dyn CddRepository>>,
@@ -160,6 +169,10 @@ pub async fn login_password(
         (status = 500, description = "Internal Server Error")
     )
 )]
+/// # Errors
+/// Returns an error on database failure
+/// # Panics
+/// panics
 pub async fn login_github(
     payload: web::Json<OAuthPayload>,
     repo: web::Data<Arc<dyn CddRepository>>,
@@ -171,28 +184,24 @@ pub async fn login_github(
     }
 
     // Exchange code for access token
-    let token = match github.exchange_code(&payload.code).await {
-        Ok(t) => t,
-        Err(_) => return Ok(HttpResponse::BadRequest().finish()),
+    let Ok(token) = github.exchange_code(&payload.code).await else {
+        return Ok(HttpResponse::BadRequest().finish());
     };
 
     // Get user profile
-    let gh_user = match github.get_user(&token).await {
-        Ok(u) => u,
-        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
+    let Ok(gh_user) = github.get_user(&token).await else {
+        return Ok(HttpResponse::InternalServerError().finish());
     };
 
     // Get primary email
-    let gh_emails = match github.get_emails(&token).await {
-        Ok(e) => e,
-        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
+    let Ok(gh_emails) = github.get_emails(&token).await else {
+        return Ok(HttpResponse::InternalServerError().finish());
     };
 
     let primary_email = gh_emails
         .into_iter()
         .find(|e| e.primary)
-        .map(|e| e.email)
-        .unwrap_or_else(|| "".to_string());
+        .map_or_else(String::new, |e| e.email);
 
     // Upsert into local database
     match repo
@@ -226,7 +235,7 @@ mod tests {
     use actix_web::{test, App};
 
     fn test_config() -> AppConfig {
-        AppConfig::load(None).expect("expected value")
+        AppConfig::load(None).unwrap_or_else(|_| panic!("expected value"))
     }
 
     #[actix_web::test]
@@ -315,7 +324,7 @@ mod tests {
             Ok(crate::github::models::GitHubUser {
                 id: 123,
                 login: "gh_user".to_string(),
-                avatar_url: "".to_string(),
+                avatar_url: String::new(),
             })
         });
         mock_gh.expect_get_emails().returning(|_| {
@@ -383,7 +392,9 @@ mod tests {
                 github_id: None,
                 username: "test".into(),
                 email: "test@example.com".into(),
-                password_hash: Some(hash_password("pwd").expect("expected hash")),
+                password_hash: Some(
+                    hash_password("pwd").unwrap_or_else(|_| panic!("expected hash")),
+                ),
             }))
         });
 
@@ -417,7 +428,9 @@ mod tests {
                 github_id: None,
                 username: "test".into(),
                 email: "test@example.com".into(),
-                password_hash: Some(hash_password("pwd").expect("expected hash")),
+                password_hash: Some(
+                    hash_password("pwd").unwrap_or_else(|_| panic!("expected hash")),
+                ),
             }))
         });
 
@@ -451,7 +464,9 @@ mod tests {
                 github_id: None,
                 username: "test".into(),
                 email: "test@example.com".into(),
-                password_hash: Some(hash_password("pwd2").expect("expected hash")),
+                password_hash: Some(
+                    hash_password("pwd2").unwrap_or_else(|_| panic!("expected hash")),
+                ),
             }))
         });
 
@@ -492,7 +507,7 @@ mod tests {
         let req = test::TestRequest::post()
             .uri("/auth/github")
             .set_json(OAuthPayload {
-                code: "".to_string(),
+                code: String::new(),
             })
             .to_request();
         let resp = test::call_service(&app, req).await;
@@ -552,7 +567,7 @@ mod tests {
             }])
         });
 
-        let config = AppConfig::load(None).expect("expected value");
+        let config = AppConfig::load(None).unwrap_or_else(|_| panic!("expected value"));
         let repo: Arc<dyn CddRepository> = Arc::new(mock_repo);
         let gh: Arc<dyn GitHubClient> = Arc::new(mock_gh);
 
@@ -583,7 +598,7 @@ mod tests {
             })
         });
 
-        let config = AppConfig::load(None).expect("expected value");
+        let config = AppConfig::load(None).unwrap_or_else(|_| panic!("expected value"));
         let repo: Arc<dyn CddRepository> = Arc::new(mock_repo);
 
         let req = web::Json(RegisterPayload {

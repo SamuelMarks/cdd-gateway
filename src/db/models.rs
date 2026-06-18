@@ -1,10 +1,11 @@
+#![allow(clippy::ref_option_ref)]
 #![allow(missing_docs)]
 
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::db::schema::*;
+use crate::db::schema::{organization_users, organizations, releases, repositories, users};
 
 /// User model representing an authenticated user or synced GitHub user.
 #[derive(
@@ -18,6 +19,7 @@ use crate::db::schema::*;
     Deserialize,
     ToSchema,
     PartialEq,
+    Eq,
 )]
 #[diesel(table_name = users)]
 pub struct User {
@@ -38,6 +40,7 @@ pub struct NewUser<'a> {
     pub password_hash: Option<&'a str>,
 }
 
+#[allow(clippy::ref_option_ref)]
 #[derive(Debug, Clone, AsChangeset)]
 #[diesel(table_name = users)]
 pub struct UpdateUser<'a> {
@@ -58,6 +61,7 @@ pub struct UpdateUser<'a> {
     Deserialize,
     ToSchema,
     PartialEq,
+    Eq,
 )]
 #[diesel(table_name = organizations)]
 pub struct Organization {
@@ -75,6 +79,7 @@ pub struct NewOrganization<'a> {
     pub description: Option<&'a str>,
 }
 
+#[allow(clippy::ref_option_ref)]
 #[derive(Debug, Clone, AsChangeset)]
 #[diesel(table_name = organizations)]
 pub struct UpdateOrganization<'a> {
@@ -94,6 +99,7 @@ pub struct UpdateOrganization<'a> {
     Deserialize,
     ToSchema,
     PartialEq,
+    Eq,
 )]
 #[diesel(table_name = organization_users)]
 #[diesel(primary_key(organization_id, user_id))]
@@ -111,6 +117,7 @@ pub struct NewOrganizationUser<'a> {
     pub role: &'a str,
 }
 
+#[allow(clippy::ref_option_ref)]
 #[derive(Debug, Clone, AsChangeset)]
 #[diesel(table_name = organization_users)]
 pub struct UpdateOrganizationUser<'a> {
@@ -128,6 +135,7 @@ pub struct UpdateOrganizationUser<'a> {
     Deserialize,
     ToSchema,
     PartialEq,
+    Eq,
 )]
 #[diesel(table_name = repositories)]
 pub struct Repository {
@@ -147,6 +155,7 @@ pub struct NewRepository<'a> {
     pub description: Option<&'a str>,
 }
 
+#[allow(clippy::ref_option_ref)]
 #[derive(Debug, Clone, AsChangeset)]
 #[diesel(table_name = repositories)]
 pub struct UpdateRepository<'a> {
@@ -167,6 +176,7 @@ pub struct UpdateRepository<'a> {
     Deserialize,
     ToSchema,
     PartialEq,
+    Eq,
 )]
 #[diesel(table_name = releases)]
 pub struct Release {
@@ -188,6 +198,7 @@ pub struct NewRelease<'a> {
     pub body: Option<&'a str>,
 }
 
+#[allow(clippy::ref_option_ref)]
 #[derive(Debug, Clone, AsChangeset)]
 #[diesel(table_name = releases)]
 pub struct UpdateRelease<'a> {

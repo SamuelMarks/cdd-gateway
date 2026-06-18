@@ -42,20 +42,18 @@ pub async fn create_repo(
         .get_user_role(payload.organization_id, auth_user.user_id)
         .await
     {
-        Ok(Some(role)) if role == "owner" => {
-            match repo
-                .create_repository(
-                    payload.organization_id,
-                    None,
-                    payload.name.clone(),
-                    payload.description.clone(),
-                )
-                .await
-            {
-                Ok(created_repo) => HttpResponse::Created().json(created_repo),
-                Err(_) => HttpResponse::InternalServerError().finish(),
-            }
-        }
+        Ok(Some(role)) if role == "owner" => repo
+            .create_repository(
+                payload.organization_id,
+                None,
+                payload.name.clone(),
+                payload.description.clone(),
+            )
+            .await
+            .map_or_else(
+                |_| HttpResponse::InternalServerError().finish(),
+                |created_repo| HttpResponse::Created().json(created_repo),
+            ),
         Ok(_) => HttpResponse::Forbidden().finish(),
         Err(_) => HttpResponse::InternalServerError().finish(),
     }
@@ -102,7 +100,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/repos")
-            .insert_header(("Authorization", format!("Bearer {}", token)))
+            .insert_header(("Authorization", format!("Bearer {token}")))
             .set_json(RepoPayload {
                 organization_id: 1,
                 name: "testrepo".to_string(),
@@ -132,7 +130,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/repos")
-            .insert_header(("Authorization", format!("Bearer {}", token)))
+            .insert_header(("Authorization", format!("Bearer {token}")))
             .set_json(RepoPayload {
                 organization_id: 1,
                 name: "testrepo".to_string(),

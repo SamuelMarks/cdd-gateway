@@ -1,3 +1,4 @@
+#![allow(clippy::needless_for_each)]
 #![cfg(not(tarpaulin_include))]
 
 /// Auth module
@@ -52,7 +53,8 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
     crate::mcp::configure(cfg);
 }
 
-/// OpenAPI schema definitions
+/// `OpenAPI` schema definitions
+#[allow(clippy::needless_for_each)]
 #[derive(OpenApi)]
 #[openapi(
     paths(
@@ -110,12 +112,13 @@ impl utoipa::Modify for SecurityAddon {
                         .bearer_format("JWT")
                         .build(),
                 ),
-            )
+            );
         }
     }
 }
 
 /// Helper function to create the Swagger UI instance
+#[must_use]
 pub fn swagger_ui() -> SwaggerUi {
     SwaggerUi::new("/swagger-ui/{_:.*}").url("/api-docs/openapi.json", ApiDoc::openapi())
 }
@@ -156,7 +159,7 @@ mod tests {
         addon.modify(&mut openapi);
         assert!(openapi
             .components
-            .expect("expected value")
+            .unwrap_or_else(|| panic!("expected value"))
             .security_schemes
             .contains_key("bearer_auth"));
     }

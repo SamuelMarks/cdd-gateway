@@ -18,7 +18,9 @@ use diesel::r2d2::{self, ConnectionManager};
 /// Database connection pool
 pub type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
-/// Establish connection pool for PostgreSQL
+/// Establish connection pool for `PostgreSQL`
+/// # Errors
+/// error
 pub fn establish_connection_pool(
     database_url: &str,
 ) -> Result<DbPool, crate::error::CddGatewayError> {

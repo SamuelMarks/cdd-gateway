@@ -92,7 +92,7 @@ mod tests {
 
         let req = test::TestRequest::post()
             .uri("/orgs")
-            .insert_header(("Authorization", format!("Bearer {}", token)))
+            .insert_header(("Authorization", format!("Bearer {token}")))
             .set_json(OrgPayload {
                 login: "testorg".to_string(),
                 description: None,

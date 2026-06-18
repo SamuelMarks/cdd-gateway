@@ -53,7 +53,7 @@ async fn test_user_organization_link() -> Result<(), TestError> {
     let org = repo.create_organization(None, login.clone(), None).await?;
 
     let username = format!("user_{}", Uuid::new_v4());
-    let email = format!("{}@example.com", username);
+    let email = format!("{username}@example.com");
     let user = repo
         .create_user(None, username.clone(), email.clone(), None)
         .await?;

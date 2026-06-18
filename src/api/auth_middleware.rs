@@ -39,8 +39,10 @@ impl FromRequest for AuthenticatedUser {
         // the compile-time default so that tests without AppConfig still work.
         let secret: Vec<u8> = req
             .app_data::<actix_web::web::Data<AppConfig>>()
-            .map(|cfg| cfg.jwt_secret.as_bytes().to_vec())
-            .unwrap_or_else(|| b"super-secret-key".to_vec());
+            .map_or_else(
+                || b"super-secret-key".to_vec(),
+                |cfg| cfg.jwt_secret.as_bytes().to_vec(),
+            );
 
         let auth = BearerAuth::from_request(req, payload).into_inner();
 
@@ -52,7 +54,7 @@ impl FromRequest for AuthenticatedUser {
                     &DecodingKey::from_secret(&secret),
                     &Validation::default(),
                 ) {
-                    Ok(token_data) => ready(Ok(AuthenticatedUser {
+                    Ok(token_data) => ready(Ok(Self {
                         user_id: token_data.claims.sub,
                         username: token_data.claims.username,
                     })),
@@ -69,11 +71,17 @@ impl FromRequest for AuthenticatedUser {
 ///
 /// Used by test helpers across the codebase to produce a valid Bearer token
 /// without needing a running server.
+#[must_use]
+/// # Panics
+/// Panics on encode failure
 pub fn generate_test_token() -> String {
     use jsonwebtoken::{encode, EncodingKey, Header};
     let claims = Claims {
         sub: 1,
-        exp: (chrono::Utc::now() + chrono::Duration::hours(1)).timestamp() as usize,
+        exp: (chrono::Utc::now() + chrono::Duration::hours(1))
+            .timestamp()
+            .try_into()
+            .unwrap_or(0),
         username: "testuser".to_string(),
     };
     encode(
@@ -81,7 +89,7 @@ pub fn generate_test_token() -> String {
         &claims,
         &EncodingKey::from_secret(b"super-secret-key"),
     )
-    .expect("expected value")
+    .unwrap_or_else(|_| panic!("expected value"))
 }
 
 #[cfg(test)]
@@ -100,7 +108,7 @@ mod tests {
         let token = generate_test_token();
         let req = test::TestRequest::get()
             .uri("/")
-            .insert_header(("Authorization", format!("Bearer {}", token)))
+            .insert_header(("Authorization", format!("Bearer {token}")))
             .to_request();
         let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_success());
@@ -132,7 +140,7 @@ mod tests {
         let app = test::init_service(
             App::new()
                 .app_data(web::Data::new(
-                    AppConfig::load(None).expect("expected value"),
+                    AppConfig::load(None).unwrap_or_else(|_| panic!("expected value")),
                 ))
                 .route("/", web::get().to(dummy_handler)),
         )
@@ -141,7 +149,7 @@ mod tests {
         let token = generate_test_token();
         let req = test::TestRequest::get()
             .uri("/")
-            .insert_header(("Authorization", format!("Bearer {}", token)))
+            .insert_header(("Authorization", format!("Bearer {token}")))
             .to_request();
         let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_success());

@@ -1,9 +1,11 @@
 #![cfg(not(tarpaulin_include))]
 
-use crate::github::models::*;
+use crate::github::models::{
+    GitHubEmail, GitHubOrg, GitHubPublicKey, GitHubRelease, GitHubRepo, GitHubUser,
+};
 use async_trait::async_trait;
 use mockall::automock;
-use reqwest::{header, Client};
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
 /// A trait abstracting GitHub API calls
@@ -11,7 +13,7 @@ use serde::{Deserialize, Serialize};
 #[async_trait]
 pub trait GitHubClient: Send + Sync {
     /// Exchanges an OAuth code for an access token
-    async fn exchange_code(&self, _code: &str) -> Result<String, String>;
+    async fn exchange_code(&self, code: &str) -> Result<String, String>;
 
     /// Gets the authenticated user's profile
     async fn get_user(&self, token: &str) -> Result<GitHubUser, String>;
@@ -66,7 +68,7 @@ pub trait GitHubClient: Send + Sync {
     ) -> Result<(), String>;
 }
 
-/// Reqwest implementation of GitHubClient
+/// Reqwest implementation of `GitHubClient`
 #[allow(dead_code)]
 pub struct ReqwestGitHubClient {
     client: Client,
@@ -107,7 +109,9 @@ struct CreateSecretRequest<'a> {
 }
 
 impl ReqwestGitHubClient {
-    /// Create a new ReqwestGitHubClient
+    /// Create a new `ReqwestGitHubClient`
+    /// # Errors
+    /// error
     pub fn new(
         client_id: String,
         client_secret: String,
@@ -135,8 +139,8 @@ impl ReqwestGitHubClient {
         })
     }
 
-    fn map_err(e: reqwest::Error) -> String {
-        log::error!("GitHub API Error: {}", e);
+    fn map_err(e: &reqwest::Error) -> String {
+        log::error!("GitHub API Error: {e}");
         e.to_string()
     }
 
@@ -164,17 +168,17 @@ impl GitHubClient for ReqwestGitHubClient {
             .json(&req)
             .send()
             .await
-            .map_err(Self::map_err)?
+            .map_err(|e| Self::map_err(&e))?
             .json()
             .await
-            .map_err(Self::map_err)?;
+            .map_err(|e| Self::map_err(&e))?;
 
         if let Some(token) = res.access_token {
             Ok(token)
         } else {
             Err(res
                 .error_description
-                .unwrap_or("Unknown exchange error".into()))
+                .unwrap_or_else(|| "Unknown exchange error".into()))
         }
     }
 
@@ -182,12 +186,12 @@ impl GitHubClient for ReqwestGitHubClient {
         self.build_request(reqwest::Method::GET, "https://api.github.com/user", token)
             .send()
             .await
-            .map_err(Self::map_err)?
+            .map_err(|e| Self::map_err(&e))?
             .error_for_status()
-            .map_err(Self::map_err)?
+            .map_err(|e| Self::map_err(&e))?
             .json()
             .await
-            .map_err(Self::map_err)
+            .map_err(|e| Self::map_err(&e))
     }
 
     async fn get_emails(&self, token: &str) -> Result<Vec<GitHubEmail>, String> {
@@ -198,12 +202,12 @@ impl GitHubClient for ReqwestGitHubClient {
         )
         .send()
         .await
-        .map_err(Self::map_err)?
+        .map_err(|e| Self::map_err(&e))?
         .error_for_status()
-        .map_err(Self::map_err)?
+        .map_err(|e| Self::map_err(&e))?
         .json()
         .await
-        .map_err(Self::map_err)
+        .map_err(|e| Self::map_err(&e))
     }
 
     async fn list_orgs(&self, token: &str) -> Result<Vec<GitHubOrg>, String> {
@@ -214,25 +218,25 @@ impl GitHubClient for ReqwestGitHubClient {
         )
         .send()
         .await
-        .map_err(Self::map_err)?
+        .map_err(|e| Self::map_err(&e))?
         .error_for_status()
-        .map_err(Self::map_err)?
+        .map_err(|e| Self::map_err(&e))?
         .json()
         .await
-        .map_err(Self::map_err)
+        .map_err(|e| Self::map_err(&e))
     }
 
     async fn list_repos(&self, token: &str, org: &str) -> Result<Vec<GitHubRepo>, String> {
-        let url = format!("https://api.github.com/orgs/{}/repos", org);
+        let url = format!("https://api.github.com/orgs/{org}/repos");
         self.build_request(reqwest::Method::GET, &url, token)
             .send()
             .await
-            .map_err(Self::map_err)?
+            .map_err(|e| Self::map_err(&e))?
             .error_for_status()
-            .map_err(Self::map_err)?
+            .map_err(|e| Self::map_err(&e))?
             .json()
             .await
-            .map_err(Self::map_err)
+            .map_err(|e| Self::map_err(&e))
     }
 
     async fn create_release(
@@ -244,7 +248,7 @@ impl GitHubClient for ReqwestGitHubClient {
         name: Option<String>,
         body: Option<String>,
     ) -> Result<GitHubRelease, String> {
-        let url = format!("https://api.github.com/repos/{}/{}/releases", owner, repo);
+        let url = format!("https://api.github.com/repos/{owner}/{repo}/releases");
         let req = CreateReleaseRequest {
             tag_name,
             name: name.as_deref(),
@@ -254,12 +258,12 @@ impl GitHubClient for ReqwestGitHubClient {
             .json(&req)
             .send()
             .await
-            .map_err(Self::map_err)?
+            .map_err(|e| Self::map_err(&e))?
             .error_for_status()
-            .map_err(Self::map_err)?
+            .map_err(|e| Self::map_err(&e))?
             .json()
             .await
-            .map_err(Self::map_err)
+            .map_err(|e| Self::map_err(&e))
     }
 
     async fn trigger_workflow(
@@ -271,17 +275,16 @@ impl GitHubClient for ReqwestGitHubClient {
         ref_branch: &str,
     ) -> Result<(), String> {
         let url = format!(
-            "https://api.github.com/repos/{}/{}/actions/workflows/{}/dispatches",
-            owner, repo, workflow_id
+            "https://api.github.com/repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches"
         );
         let req = TriggerWorkflowRequest { ref_branch };
         self.build_request(reqwest::Method::POST, &url, token)
             .json(&req)
             .send()
             .await
-            .map_err(Self::map_err)?
+            .map_err(|e| Self::map_err(&e))?
             .error_for_status()
-            .map_err(Self::map_err)?;
+            .map_err(|e| Self::map_err(&e))?;
         Ok(())
     }
 
@@ -291,19 +294,16 @@ impl GitHubClient for ReqwestGitHubClient {
         owner: &str,
         repo: &str,
     ) -> Result<GitHubPublicKey, String> {
-        let url = format!(
-            "https://api.github.com/repos/{}/{}/actions/secrets/public-key",
-            owner, repo
-        );
+        let url = format!("https://api.github.com/repos/{owner}/{repo}/actions/secrets/public-key");
         self.build_request(reqwest::Method::GET, &url, token)
             .send()
             .await
-            .map_err(Self::map_err)?
+            .map_err(|e| Self::map_err(&e))?
             .error_for_status()
-            .map_err(Self::map_err)?
+            .map_err(|e| Self::map_err(&e))?
             .json()
             .await
-            .map_err(Self::map_err)
+            .map_err(|e| Self::map_err(&e))
     }
 
     async fn create_repo_secret(
@@ -315,10 +315,8 @@ impl GitHubClient for ReqwestGitHubClient {
         encrypted_value: &str,
         key_id: &str,
     ) -> Result<(), String> {
-        let url = format!(
-            "https://api.github.com/repos/{}/{}/actions/secrets/{}",
-            owner, repo, secret_name
-        );
+        let url =
+            format!("https://api.github.com/repos/{owner}/{repo}/actions/secrets/{secret_name}");
         let req = CreateSecretRequest {
             encrypted_value,
             key_id,
@@ -327,9 +325,9 @@ impl GitHubClient for ReqwestGitHubClient {
             .json(&req)
             .send()
             .await
-            .map_err(Self::map_err)?
+            .map_err(|e| Self::map_err(&e))?
             .error_for_status()
-            .map_err(Self::map_err)?;
+            .map_err(|e| Self::map_err(&e))?;
         Ok(())
     }
 }
@@ -341,14 +339,14 @@ mod tests {
     #[actix_web::test]
     async fn test_new_client() {
         let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string())
-            .expect("valid test client");
+            .unwrap_or_else(|_| panic!("valid test client"));
         assert_eq!(client.client_id, "id");
     }
 
     #[actix_web::test]
     async fn test_get_user() {
         let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string())
-            .expect("valid test client");
+            .unwrap_or_else(|_| panic!("valid test client"));
         let res = client.get_user("bad_token").await;
         assert!(res.is_err());
     }
@@ -356,7 +354,7 @@ mod tests {
     #[actix_web::test]
     async fn test_get_user_emails() {
         let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string())
-            .expect("valid test client");
+            .unwrap_or_else(|_| panic!("valid test client"));
         let res = client.get_emails("bad_token").await;
         assert!(res.is_err());
     }
@@ -364,7 +362,7 @@ mod tests {
     #[actix_web::test]
     async fn test_exchange_code() {
         let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string())
-            .expect("valid test client");
+            .unwrap_or_else(|_| panic!("valid test client"));
         let res = client.exchange_code("bad_code").await;
         assert!(res.is_err());
     }
@@ -372,7 +370,7 @@ mod tests {
     #[actix_web::test]
     async fn test_list_orgs() {
         let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string())
-            .expect("valid test client");
+            .unwrap_or_else(|_| panic!("valid test client"));
         let res = client.list_orgs("bad_token").await;
         assert!(res.is_err());
     }
@@ -380,7 +378,7 @@ mod tests {
     #[actix_web::test]
     async fn test_list_repos() {
         let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string())
-            .expect("valid test client");
+            .unwrap_or_else(|_| panic!("valid test client"));
         let res = client.list_repos("org", "bad_token").await;
         assert!(res.is_err());
     }
@@ -388,7 +386,7 @@ mod tests {
     #[actix_web::test]
     async fn test_get_repo_public_key() {
         let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string())
-            .expect("valid test client");
+            .unwrap_or_else(|_| panic!("valid test client"));
         let res = client
             .get_repo_public_key("owner", "repo", "bad_token")
             .await;
@@ -398,7 +396,7 @@ mod tests {
     #[actix_web::test]
     async fn test_create_repo_secret() {
         let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string())
-            .expect("valid test client");
+            .unwrap_or_else(|_| panic!("valid test client"));
         let res = client
             .create_repo_secret("owner", "repo", "key", "val", "kid", "bad_token")
             .await;
@@ -408,7 +406,7 @@ mod tests {
     #[actix_web::test]
     async fn test_trigger_workflow() {
         let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string())
-            .expect("valid test client");
+            .unwrap_or_else(|_| panic!("valid test client"));
         let res = client
             .trigger_workflow("owner", "repo", "wf", "ref", "bad_token")
             .await;
@@ -418,7 +416,7 @@ mod tests {
     #[actix_web::test]
     async fn test_create_release() {
         let client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string())
-            .expect("valid test client");
+            .unwrap_or_else(|_| panic!("valid test client"));
         let res = client
             .create_release("token", "owner", "repo", "tag", None, None)
             .await;

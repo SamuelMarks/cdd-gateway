@@ -22,47 +22,47 @@ pub struct SyncStatus {
     pub message: String,
 }
 
-/// WebhookResponse structure
+/// `WebhookResponse` structure
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct WebhookResponse {
     /// success field
     pub success: bool,
 }
 
-/// TriggerWorkflowPayload structure
+/// `TriggerWorkflowPayload` structure
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct TriggerWorkflowPayload {
     /// owner field
     pub owner: String,
     /// repo field
     pub repo: String,
-    /// workflow_id field
+    /// `workflow_id` field
     pub workflow_id: String,
-    /// ref_branch field
+    /// `ref_branch` field
     pub ref_branch: String,
 }
 
-/// CreateSecretPayload structure
+/// `CreateSecretPayload` structure
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct CreateSecretPayload {
     /// owner field
     pub owner: String,
     /// repo field
     pub repo: String,
-    /// secret_name field
+    /// `secret_name` field
     pub secret_name: String,
-    /// secret_value field
+    /// `secret_value` field
     pub secret_value: String,
 }
 
-/// ReleasePayload structure
+/// `ReleasePayload` structure
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct ReleasePayload {
     /// owner field
     pub owner: String,
     /// repo field
     pub repo: String,
-    /// tag_name field
+    /// `tag_name` field
     pub tag_name: String,
     /// name field
     pub name: Option<String>,
@@ -102,12 +102,11 @@ pub async fn sync_github_data(
     };
 
     for org in orgs {
-        let db_org = match repo
+        let Ok(db_org) = repo
             .upsert_organization(org.id, org.login.clone(), org.description)
             .await
-        {
-            Ok(o) => o,
-            Err(_) => continue,
+        else {
+            continue;
         };
 
         if let Ok(repos) = github.list_repos(token, &org.login).await {
@@ -132,9 +131,8 @@ fn verify_signature(secret: &str, payload: &[u8], signature: &str) -> bool {
     }
     let sig_hex = &signature[7..];
 
-    let mut mac = match HmacSha256::new_from_slice(secret.as_bytes()) {
-        Ok(m) => m,
-        Err(_) => return false,
+    let Ok(mut mac) = HmacSha256::new_from_slice(secret.as_bytes()) else {
+        return false;
     };
 
     mac.update(payload);
@@ -154,7 +152,8 @@ fn verify_signature(secret: &str, payload: &[u8], signature: &str) -> bool {
         (status = 401, description = "Invalid signature")
     )
 )]
-pub async fn webhook_receiver(req: HttpRequest, body: String) -> impl Responder {
+#[allow(clippy::future_not_send)]
+pub async fn webhook_receiver(req: HttpRequest, body: String) -> HttpResponse {
     let signature = req
         .headers()
         .get("x-hub-signature-256")
@@ -235,7 +234,7 @@ pub async fn trigger_action(
         )
         .await
     {
-        Ok(_) => HttpResponse::Ok().finish(),
+        Ok(()) => HttpResponse::Ok().finish(),
         Err(_) => HttpResponse::InternalServerError().finish(),
     }
 }
@@ -260,12 +259,11 @@ pub async fn create_secret(
     let token = "system_token";
 
     // 1. Get public key for the repo
-    let pub_key = match github
+    let Ok(pub_key) = github
         .get_repo_public_key(token, &payload.owner, &payload.repo)
         .await
-    {
-        Ok(k) => k,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
+    else {
+        return HttpResponse::InternalServerError().finish();
     };
 
     // Note: To truly encrypt for GitHub, you use crypto_box::seal (libsodium sealed boxes).
@@ -283,7 +281,7 @@ pub async fn create_secret(
         )
         .await
     {
-        Ok(_) => HttpResponse::Created().finish(),
+        Ok(()) => HttpResponse::Created().finish(),
         Err(_) => HttpResponse::InternalServerError().finish(),
     }
 }
@@ -387,7 +385,8 @@ mod tests {
 
         let payload = b"dummy payload";
         let secret = "my_webhook_secret";
-        let mut mac = HmacSha256::new_from_slice(secret.as_bytes()).expect("expected value");
+        let mut mac = HmacSha256::new_from_slice(secret.as_bytes())
+            .unwrap_or_else(|_| panic!("expected value"));
         mac.update(payload);
         let valid_sig = format!("sha256={}", hex::encode(mac.finalize().into_bytes()));
 
