@@ -25,7 +25,7 @@ echo   install_base   - Install language runtime (Rust, Node.js, etc.)
 echo   install_deps   - Install local dependencies (cargo build, npm install)
 echo   docs           - Generate API docs and symlink to ./docs/html
 echo   build_docs     - Build the API docs and put them in the specified directory
-echo   build          - Build the cdd-ctl backend and package all cdd-* WASM projects
+echo   build          - Build the cdd-gateway backend and package all cdd-* WASM projects
 echo   test           - Run tests locally
 echo   run            - Run the API server and the Angular frontend (ng serve)
 echo   build_docker   - Build alpine and debian Docker images
@@ -59,10 +59,10 @@ cargo doc --no-deps --target-dir %DOCS_DIR%
 goto end
 
 :build
-echo Building cdd-ctl Rust server...
+echo Building cdd-gateway Rust server...
 cargo build --release
 mkdir %BIN_DIR% 2>nul
-copy targetelease\cdd-ctl.exe %BIN_DIR%
+copy targetelease\cdd-gateway.exe %BIN_DIR%
 call scripts\fetch_wasm.bat
 	echo Mocking build of Angular website and WASM integration of cdd-* projects...
 goto end
@@ -73,26 +73,26 @@ cargo test
 goto end
 
 :run
-echo Starting cdd-ctl and running ng serve...
+echo Starting cdd-gateway and running ng serve...
 start /b cargo run
 echo Running ng serve for frontend...
 timeout /t 5
-taskkill /IM cdd-ctl.exe /F
+taskkill /IM cdd-gateway.exe /F
 goto end
 
 :build_docker
-docker build -t cdd-ctl:alpine -f alpine.Dockerfile .
-docker build -t cdd-ctl:debian -f debian.Dockerfile .
+docker build -t cdd-gateway:alpine -f alpine.Dockerfile .
+docker build -t cdd-gateway:debian -f debian.Dockerfile .
 goto end
 
 :run_docker
-docker run -d --name cdd-ctl-test -p 8080:8080 cdd-ctl:alpine
+docker run -d --name cdd-gateway-test -p 8080:8080 cdd-gateway:alpine
 echo Waiting for server to start...
 timeout /t 5
 curl -s http://localhost:8080/version
-docker stop cdd-ctl-test
-docker rm cdd-ctl-test
-docker rmi cdd-ctl:alpine cdd-ctl:debian
+docker stop cdd-gateway-test
+docker rm cdd-gateway-test
+docker rmi cdd-gateway:alpine cdd-gateway:debian
 goto end
 
 :end

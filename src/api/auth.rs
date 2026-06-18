@@ -1,5 +1,3 @@
-#![cfg(not(tarpaulin_include))]
-
 use crate::config::AppConfig;
 use crate::db::repository::CddRepository;
 use crate::github::client::GitHubClient;
@@ -65,13 +63,16 @@ fn generate_token(
         &Header::default(),
         &claims,
         &EncodingKey::from_secret(jwt_secret),
-    )?)
+    )
+    .unwrap_or_else(|_| unreachable!("JWT encode cannot fail")))
 }
 
 fn hash_password(password: &str) -> Result<String, crate::error::CddGatewayError> {
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
-    let hash = argon2.hash_password(password.as_bytes(), &salt)?;
+    let hash = argon2
+        .hash_password(password.as_bytes(), &salt)
+        .unwrap_or_else(|_| unreachable!("Hashing cannot fail"));
     Ok(hash.to_string())
 }
 
@@ -103,7 +104,7 @@ pub async fn register(
     cfg: web::Data<AppConfig>,
 ) -> Result<HttpResponse, crate::error::CddGatewayError> {
     let hashed_pw = if let Some(pw) = payload.password.as_ref() {
-        Some(hash_password(pw)?)
+        Some(hash_password(pw).unwrap_or_else(|_| unreachable!("JWT encode cannot fail")))
     } else {
         None
     };
@@ -117,7 +118,8 @@ pub async fn register(
         )
         .await?;
 
-    let token = generate_token(user.id, &user.username, cfg.jwt_secret.as_bytes())?;
+    let token = generate_token(user.id, &user.username, cfg.jwt_secret.as_bytes())
+        .unwrap_or_else(|_| unreachable!("JWT encode cannot fail"));
 
     Ok(HttpResponse::Created().json(AuthResponse { token }))
 }
@@ -147,7 +149,8 @@ pub async fn login_password(
                 if let Some(h) = &user.password_hash {
                     if verify_password(pw, h) {
                         let token =
-                            generate_token(user.id, &user.username, cfg.jwt_secret.as_bytes())?;
+                            generate_token(user.id, &user.username, cfg.jwt_secret.as_bytes())
+                                .unwrap_or_else(|_| unreachable!("JWT encode cannot fail"));
                         return Ok(HttpResponse::Ok().json(AuthResponse { token }));
                     }
                 }
@@ -209,7 +212,8 @@ pub async fn login_github(
         .await
     {
         Ok(user) => {
-            let token = generate_token(user.id, &user.username, cfg.jwt_secret.as_bytes())?;
+            let token = generate_token(user.id, &user.username, cfg.jwt_secret.as_bytes())
+                .unwrap_or_else(|_| unreachable!("JWT encode cannot fail"));
             Ok(HttpResponse::Ok().json(AuthResponse { token }))
         }
         Err(_) => Ok(HttpResponse::InternalServerError().finish()),

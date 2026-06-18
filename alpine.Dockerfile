@@ -5,7 +5,7 @@ FROM rust:alpine AS builder
 RUN apk add --no-cache musl-dev gcc pkgconfig openssl-dev postgresql-dev
 
 # Create a new empty shell project
-WORKDIR /usr/src/cdd-ctl
+WORKDIR /usr/src/cdd-gateway
 COPY . .
 
 # Build for release
@@ -18,8 +18,8 @@ FROM alpine:latest
 RUN apk add --no-cache libgcc openssl curl libpq
 
 WORKDIR /usr/local/bin
-COPY --from=builder /usr/src/cdd-ctl/target/release/cdd-ctl .
+COPY --from=builder /usr/src/cdd-gateway/target/release/cdd-gateway .
 
 EXPOSE 8080
 
-ENTRYPOINT ["cdd-ctl", "--bind", "0.0.0.0:8080"]
+ENTRYPOINT ["cdd-gateway", "--bind", "0.0.0.0:8080"]

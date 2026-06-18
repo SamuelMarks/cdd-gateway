@@ -1,11 +1,11 @@
 #!/bin/bash
 set -e
 
-mkdir -p cdd-ctl-wasm-sdk/assets/wasm
+mkdir -p cdd-gateway-wasm-sdk/assets/wasm
 mkdir -p target/wasm-cache
 
 # Start generating the JSON configuration
-echo "{" > cdd-ctl-wasm-sdk/assets/wasm-support.json
+echo "{" > cdd-gateway-wasm-sdk/assets/wasm-support.json
 
 REPOS=(
     "SamuelMarks/cdd-c"
@@ -31,7 +31,7 @@ for REPO in "${REPOS[@]}"; do
     LANG=${TOOL#cdd-}
     echo "Processing $TOOL ($LANG)..."
     
-    WASM_FILE="cdd-ctl-wasm-sdk/assets/wasm/$TOOL.wasm"
+    WASM_FILE="cdd-gateway-wasm-sdk/assets/wasm/$TOOL.wasm"
     SUPPORTED="false"
     
     # Attempt 1: Download from GitHub Releases
@@ -74,11 +74,11 @@ for REPO in "${REPOS[@]}"; do
     
     COUNT=$((COUNT + 1))
     if [ $COUNT -lt $TOTAL ]; then
-        echo "  \"$LANG\": $SUPPORTED," >> cdd-ctl-wasm-sdk/assets/wasm-support.json
+        echo "  \"$LANG\": $SUPPORTED," >> cdd-gateway-wasm-sdk/assets/wasm-support.json
     else
-        echo "  \"$LANG\": $SUPPORTED" >> cdd-ctl-wasm-sdk/assets/wasm-support.json
+        echo "  \"$LANG\": $SUPPORTED" >> cdd-gateway-wasm-sdk/assets/wasm-support.json
     fi
 done
 
-echo "}" >> cdd-ctl-wasm-sdk/assets/wasm-support.json
-echo "WASM acquisition complete. Support matrix generated at cdd-ctl-wasm-sdk/assets/wasm-support.json"
+echo "}" >> cdd-gateway-wasm-sdk/assets/wasm-support.json
+echo "WASM acquisition complete. Support matrix generated at cdd-gateway-wasm-sdk/assets/wasm-support.json"

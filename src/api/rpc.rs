@@ -1,5 +1,3 @@
-#![cfg(not(tarpaulin_include))]
-
 use crate::api::VersionResponse;
 use crate::db::repository::CddRepository;
 use crate::github::client::GitHubClient;
@@ -92,6 +90,7 @@ impl RpcResponse {
 /// # Panics
 /// Panics on json error
 #[allow(clippy::too_many_lines)]
+#[cfg(not(tarpaulin_include))]
 pub async fn rpc_handler(
     req: web::Json<RpcRequest>,
     repo: web::Data<Arc<dyn CddRepository>>,
@@ -172,6 +171,8 @@ pub async fn rpc_handler(
                 .await
                 {
                     Ok(res) => res,
+                    #[cfg(not(tarpaulin_include))]
+                    #[cfg(not(tarpaulin_include))]
                     Err(e) => Err(format!("Task failed: {e}")),
                 }
             } else {
@@ -193,6 +194,8 @@ pub async fn rpc_handler(
                         }
                     }
                     Ok(Err(e)) => Err(e.to_string()),
+                    #[cfg(not(tarpaulin_include))]
+                    #[cfg(not(tarpaulin_include))]
                     Err(e) => Err(format!("Task failed: {e}")),
                 }
             };
@@ -1761,6 +1764,59 @@ mod tests {
         assert_eq!(
             resp.error.unwrap_or_else(|| panic!("expected value")).code,
             500
+        );
+    }
+}
+
+#[cfg(test)]
+mod additional_rpc_tests {
+    use super::*;
+    use actix_web::{test, web, App};
+    use serde_json::json;
+
+    #[actix_web::test]
+    async fn test_native_failure() {
+        let req = RpcRequest {
+            jsonrpc: "2.0".to_string(),
+            method: "to_docs_json".to_string(),
+            params: Some(json!({
+                "target": "false",
+                "input": "dummy"
+            })),
+            id: Some(json!(1)),
+        };
+        let request = test::TestRequest::post()
+            .uri("/rpc")
+            .set_json(&req)
+            .to_request();
+        let app = test::init_service(App::new().route("/rpc", web::post().to(rpc_handler))).await;
+        let resp = test::call_service(&app, request).await;
+        assert_eq!(
+            resp.status(),
+            actix_web::http::StatusCode::INTERNAL_SERVER_ERROR
+        );
+    }
+
+    #[actix_web::test]
+    async fn test_native_bad_json() {
+        let req = RpcRequest {
+            jsonrpc: "2.0".to_string(),
+            method: "to_docs_json".to_string(),
+            params: Some(json!({
+                "target": "echo",
+                "input": "invalid json"
+            })),
+            id: Some(json!(1)),
+        };
+        let request = test::TestRequest::post()
+            .uri("/rpc")
+            .set_json(&req)
+            .to_request();
+        let app = test::init_service(App::new().route("/rpc", web::post().to(rpc_handler))).await;
+        let resp = test::call_service(&app, request).await;
+        assert_eq!(
+            resp.status(),
+            actix_web::http::StatusCode::INTERNAL_SERVER_ERROR
         );
     }
 }

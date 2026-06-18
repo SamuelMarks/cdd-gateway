@@ -1,17 +1,17 @@
-# Usage Guide for `cdd-ctl`
+# Usage Guide for `cdd-gateway`
 
-> This document is the end-user guide detailing how to run, configure, and embed `cdd-ctl` via native CLI, WASM, background server, or as a Rust crate.
+> This document is the end-user guide detailing how to run, configure, and embed `cdd-gateway` via native CLI, WASM, background server, or as a Rust crate.
 
 
-The `cdd-ctl` ecosystem provides extremely flexible deployment models. Depending on your environment, you can use it as a native CLI tool, a WASM-backed CLI, a centralized background server, an embedded browser library, or a Rust SDK.
+The `cdd-gateway` ecosystem provides extremely flexible deployment models. Depending on your environment, you can use it as a native CLI tool, a WASM-backed CLI, a centralized background server, an embedded browser library, or a Rust SDK.
 
 ## 1. Via CLI (Native)
 
-You can run the `cdd-ctl` daemon manager directly from your command line. In this mode, `cdd-ctl` runs natively on your host OS and spawns native `cdd-*` child processes (like `cdd-rust`, `cdd-python`, etc.).
+You can run the `cdd-gateway` daemon manager directly from your command line. In this mode, `cdd-gateway` runs natively on your host OS and spawns native `cdd-*` child processes (like `cdd-rust`, `cdd-python`, etc.).
 
 ```bash
 # Run the native REST API Gateway and daemon manager
-cargo run --bin cdd-ctl --release -- --bind 127.0.0.1:8080 --config ./servers.json
+cargo run --bin cdd-gateway --release -- --bind 127.0.0.1:8080 --config ./servers.json
 
 # Alternatively, run the JSON-RPC variant
 cargo run --bin cdd-rpc --release -- --bind 127.0.0.1:8082 --config ./servers.json
@@ -30,16 +30,16 @@ If you prefer to avoid installing native dependencies for all 13 supported langu
 wasmtime --version
 
 # Run the WASM-backed REST API Gateway
-cargo run --bin cdd-ctl-wasm --release -- --bind 127.0.0.1:8081 --config ./servers.json
+cargo run --bin cdd-gateway-wasm --release -- --bind 127.0.0.1:8081 --config ./servers.json
 
 # Or the WASM-backed JSON-RPC variant
 cargo run --bin cdd-rpc-wasm --release -- --bind 127.0.0.1:8083 --config ./servers.json
 ```
-*Note: If your configuration does not define any servers, `cdd-ctl-wasm` will automatically populate the configuration to use `wasmtime` against the `.wasm` files located in `cdd-ctl-wasm-sdk/assets/wasm/`.*
+*Note: If your configuration does not define any servers, `cdd-gateway-wasm` will automatically populate the configuration to use `wasmtime` against the `.wasm` files located in `cdd-gateway-wasm-sdk/assets/wasm/`.*
 
 ## 3. As a Server (Native REST/RPC)
 
-For production deployments, `cdd-ctl` is designed to be run as a persistent background server or inside a Docker container (see `alpine.Dockerfile` or `debian.Dockerfile`). It acts as a supervisor, restarting failed language servers and routing API Gateway traffic to them.
+For production deployments, `cdd-gateway` is designed to be run as a persistent background server or inside a Docker container (see `alpine.Dockerfile` or `debian.Dockerfile`). It acts as a supervisor, restarting failed language servers and routing API Gateway traffic to them.
 
 Create a `config.json` that defines your native servers:
 
@@ -72,7 +72,7 @@ curl -X POST http://localhost:8080/auth/register \
 
 ## 4. As a Server with WASM
 
-You can deploy `cdd-ctl-wasm` as your centralized server to ensure a highly secure, sandboxed execution environment. This is especially useful in multi-tenant architectures where you are processing untrusted OpenAPI specifications and executing dynamic generation jobs.
+You can deploy `cdd-gateway-wasm` as your centralized server to ensure a highly secure, sandboxed execution environment. This is especially useful in multi-tenant architectures where you are processing untrusted OpenAPI specifications and executing dynamic generation jobs.
 
 Configure your `config.json` to explicitly use the WASM runtime:
 
@@ -98,11 +98,11 @@ Run the server persistently as you would the native version. The daemon manager 
 If you want to execute operations completely offline, directly inside a user's web browser, or via a lightweight Node.js script, you can use the TypeScript/JavaScript SDK. This bypasses the Rust backend entirely and runs the `cdd-*` WASM binaries client-side.
 
 ```bash
-npm install cdd-ctl-wasm-sdk
+npm install cdd-gateway-wasm-sdk
 ```
 
 ```typescript
-import { CddWasmSdk } from "cdd-ctl-wasm-sdk";
+import { CddWasmSdk } from "cdd-gateway-wasm-sdk";
 
 // Executes the cdd-python generator locally using its WASM binary
 const generatedFiles = await CddWasmSdk.fromOpenApi({
@@ -117,13 +117,13 @@ console.log(generatedFiles);
 
 ## 6. As an SDK (Rust Crate)
 
-You can embed `cdd-ctl`'s powerful daemon management, database ORM, and GitHub integration logic directly into your own custom Rust applications by adding it as a library dependency.
+You can embed `cdd-gateway`'s powerful daemon management, database ORM, and GitHub integration logic directly into your own custom Rust applications by adding it as a library dependency.
 
 Add it to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-cdd-ctl = { path = "../cdd-ctl" } # Or fetch from crates.io if published
+cdd-gateway = { path = "../cdd-gateway" } # Or fetch from crates.io if published
 ```
 
 Use the `ProcessManager` or Database repositories directly in your Rust code:

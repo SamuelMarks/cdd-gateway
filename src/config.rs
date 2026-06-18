@@ -1,5 +1,3 @@
-#![cfg(not(tarpaulin_include))]
-
 use cdd_engine::daemon::ProcessConfig;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

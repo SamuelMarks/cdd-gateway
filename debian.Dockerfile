@@ -4,7 +4,7 @@ FROM rust:slim-bookworm AS builder
 # Install build dependencies
 RUN apt-get update && apt-get install -y pkg-config libssl-dev gcc build-essential libpq-dev && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /usr/src/cdd-ctl
+WORKDIR /usr/src/cdd-gateway
 COPY . .
 
 # Build for release
@@ -19,8 +19,8 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/local/bin
-COPY --from=builder /usr/src/cdd-ctl/target/release/cdd-ctl .
+COPY --from=builder /usr/src/cdd-gateway/target/release/cdd-gateway .
 
 EXPOSE 8080
 
-ENTRYPOINT ["cdd-ctl", "--bind", "0.0.0.0:8080"]
+ENTRYPOINT ["cdd-gateway", "--bind", "0.0.0.0:8080"]

@@ -1,4 +1,3 @@
-#![cfg(not(tarpaulin_include))]
 #![deny(missing_docs)]
 //! Server-Sent Events (SSE) transport for Model Context Protocol.
 

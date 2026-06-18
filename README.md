@@ -10,7 +10,9 @@ This repository contains the REST API powered by `actix-web`, the database migra
 
 ## Overview
 
-`cdd-gateway` delegates the heavy lifting of executing processes and WASM payloads to the `cdd-engine` crate. It focuses on HTTP serving, database persistence, synchronization with the GitHub API, and exposing an interactive OpenAPI Sandbox.
+`cdd-gateway` delegates the heavy lifting of executing processes and WASM payloads to the `cdd-engine` crate. It focuses on HTTP serving, database persistence, synchronization with the GitHub API, and exposing an interactive OpenAPI Sandbox. 
+
+It is designed to serve as the primary ingress and Control Plane backend for [`cdd-web-ui`](https://github.com/SamuelMarks/cdd-web-ui), the central graphical interface and frontend dashboard for the CDD ecosystem. Through this gateway, the web UI manages organizations, repositories, and offloads backend code generation workflows.
 
 ## License
 

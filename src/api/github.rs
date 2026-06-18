@@ -131,9 +131,8 @@ fn verify_signature(secret: &str, payload: &[u8], signature: &str) -> bool {
     }
     let sig_hex = &signature[7..];
 
-    let Ok(mut mac) = HmacSha256::new_from_slice(secret.as_bytes()) else {
-        return false;
-    };
+    let mut mac = HmacSha256::new_from_slice(secret.as_bytes())
+        .unwrap_or_else(|_| unreachable!("HMAC can take key of any size"));
 
     mac.update(payload);
     let result = mac.finalize().into_bytes();

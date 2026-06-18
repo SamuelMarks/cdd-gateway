@@ -7,13 +7,13 @@ A core strength of the `cdd-*` ecosystem is its ability to compile language-spec
 
 ## Execution Environments
 
-`cdd-ctl` supports WASM execution through two primary channels:
+`cdd-gateway` supports WASM execution through two primary channels:
 
-### 1. Backend Sandboxing (`cdd-ctl-wasm` & `cdd-rpc-wasm`)
-Using `wasmtime`, `cdd-ctl` can evaluate `.wasm` payloads on the backend instead of spawning native OS processes. This provides a high-security, heavily sandboxed execution environment ideal for multi-tenant SaaS deployments where untrusted OpenAPI specifications are processed.
+### 1. Backend Sandboxing (`cdd-gateway-wasm` & `cdd-rpc-wasm`)
+Using `wasmtime`, `cdd-gateway` can evaluate `.wasm` payloads on the backend instead of spawning native OS processes. This provides a high-security, heavily sandboxed execution environment ideal for multi-tenant SaaS deployments where untrusted OpenAPI specifications are processed.
 
-### 2. Frontend / Embedded (`cdd-ctl-wasm-sdk`)
-The `cdd-ctl-wasm-sdk` package is a dedicated TypeScript library that uses `@bjorn3/browser_wasi_shim` to execute `.wasm` files directly in the browser. It mounts virtual filesystem descriptors, captures `stdout`/`stderr`, and returns the generated code artifacts natively to the frontend JavaScript context.
+### 2. Frontend / Embedded (`cdd-gateway-wasm-sdk`)
+The `cdd-gateway-wasm-sdk` package is a dedicated TypeScript library that uses `@bjorn3/browser_wasi_shim` to execute `.wasm` files directly in the browser. It mounts virtual filesystem descriptors, captures `stdout`/`stderr`, and returns the generated code artifacts natively to the frontend JavaScript context.
 
 ## Acquiring WASM Binaries
 
@@ -22,7 +22,7 @@ WASM binaries can be acquired via the bundled helper script, which downloads the
 ```bash
 ./scripts/fetch_wasm.sh
 ```
-This script downloads artifacts into `cdd-ctl-wasm-sdk/assets/wasm/` and generates a `wasm-support.json` matrix.
+This script downloads artifacts into `cdd-gateway-wasm-sdk/assets/wasm/` and generates a `wasm-support.json` matrix.
 
 ## Current WASM Support Matrix
 
@@ -48,4 +48,4 @@ Extensive testing via `wasmtime` has yielded the following support constraints a
 
 If a specific `cdd-*` tool lacks WASM support (e.g., `cdd-sh`), the architecture degrades gracefully:
 - **Frontend**: The Web UI dynamically reads the `wasm-support.json` matrix at launch. Unsupported languages are explicitly flagged and greyed out to prevent execution errors.
-- **Backend (`cdd-ctl-wasm`)**: If requested via the API, the backend will identify the missing WASM capability and gracefully fall back to the native binary equivalent (if configured) or return a descriptive `400 Bad Request` indicating that the target ecosystem requires a native runtime.
+- **Backend (`cdd-gateway-wasm`)**: If requested via the API, the backend will identify the missing WASM capability and gracefully fall back to the native binary equivalent (if configured) or return a descriptive `400 Bad Request` indicating that the target ecosystem requires a native runtime.

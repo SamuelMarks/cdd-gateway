@@ -70,6 +70,7 @@ pub trait GitHubClient: Send + Sync {
 
 /// Reqwest implementation of `GitHubClient`
 #[allow(dead_code)]
+#[cfg(not(tarpaulin_include))]
 pub struct ReqwestGitHubClient {
     client: Client,
     client_id: String,
@@ -155,6 +156,7 @@ impl ReqwestGitHubClient {
 }
 
 #[async_trait]
+#[cfg(not(tarpaulin_include))]
 impl GitHubClient for ReqwestGitHubClient {
     async fn exchange_code(&self, code: &str) -> Result<String, String> {
         let req = ExchangeRequest {

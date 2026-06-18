@@ -1,5 +1,3 @@
-#![cfg(not(tarpaulin_include))]
-
 use crate::config::AppConfig;
 use actix_web::{dev::Payload, FromRequest, HttpRequest};
 use actix_web_httpauth::extractors::bearer::BearerAuth;

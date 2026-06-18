@@ -1,5 +1,4 @@
 #![allow(clippy::needless_for_each)]
-#![cfg(not(tarpaulin_include))]
 
 /// Auth module
 pub mod auth;
@@ -94,7 +93,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
     ),
     modifiers(&SecurityAddon),
     tags(
-        (name = "cdd-ctl", description = "Control daemon for CDD JSON-RPC servers")
+        (name = "cdd-gateway", description = "Control daemon for CDD JSON-RPC servers")
     )
 )]
 pub struct ApiDoc;

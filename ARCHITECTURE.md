@@ -1,9 +1,8 @@
-# cdd-ctl Architecture
+# cdd-gateway Architecture
 
-> This document details the internal technical architecture, database models, daemon manager, and WebAssembly execution engine of the `cdd-ctl` ecosystem.
+> This document details the internal technical architecture, database models, daemon manager, and WebAssembly execution engine of the `cdd-gateway` ecosystem.
 
-
-`cdd-ctl` serves as the central orchestration layer and API gateway for the multi-language `cdd-*` toolchain. Rewritten natively in Rust, it provides a highly concurrent, reliable foundation for managing the execution, synchronization, and authentication of 13+ distinct language SDKs and components.
+`cdd-gateway` serves as the central orchestration layer and API gateway for the multi-language `cdd-*` toolchain. Rewritten natively in Rust, it provides a highly concurrent, reliable foundation for managing the execution, synchronization, and authentication of 13+ distinct language SDKs and components. It serves as the primary backend API and control plane for the [`cdd-web-ui`](https://github.com/SamuelMarks/cdd-web-ui) graphical interface.
 
 It operates primarily across three distinct layers:
 
@@ -14,31 +13,18 @@ It operates primarily across three distinct layers:
 
 ## High-Level Diagram
 
-```ascii
-                      +-------------------+
-                      |   Web UI / CLI    |
-                      +---------+---------+
-                                | (HTTP/REST / OpenAPI)
-                                v
-                      +---------+---------+
-                      |  cdd-ctl Gateway  |
-                      |   (actix-web)     |
-                      +----+---------+----+
-                           |         |
-      +--------------------+         +---------------------+
-      | (DB Queries via Diesel)                            | (Lifecycle Events / Wasmtime calls)
-      v                                                    v
-+-----+--------------+                             +-------+---------+
-| PostgreSQL DB      |                             | Daemon Manager  |
-| (Organizations,    |                             | (Tokio Tasks)   |
-|  Users, Repos,     |                             +-------+---------+
-|  Releases, RBAC)   |                                     |
-+--------------------+                                     | (Spawns & Tracks)
-                                                           v
-                           +----------------------------------------------------+
-                           |             cdd-* JSON-RPC Servers                 |
-                           |   (cdd-python, cdd-rust, cdd-go, cdd-typescript)   |
-                           +----------------------------------------------------+
+```mermaid
+graph TD
+    UI[cdd-web-ui<br/>Angular UI & CLI Tools]
+    Gateway[cdd-gateway<br/>Actix Web]
+    DB[(PostgreSQL DB<br/>Organizations, Users, Repos, Releases, RBAC)]
+    Daemon[Daemon Manager<br/>Tokio Tasks]
+    Servers[cdd-* JSON-RPC Servers<br/>Python, Rust, Go, TypeScript, etc.]
+
+    UI -->|HTTP/REST / OpenAPI| Gateway
+    Gateway -->|DB Queries via Diesel| DB
+    Gateway -->|Lifecycle Events / Wasmtime calls| Daemon
+    Daemon -->|Spawns & Tracks| Servers
 ```
 
 ## Core Subsystems
@@ -61,7 +47,7 @@ The database layer uses `diesel` (an asynchronous-friendly ORM in Rust) wrapping
 
 ### 3. The Daemon Manager (`src/daemon.rs`)
 
-Because the ecosystem consists of diverse technology stacks (Python, Java, Go, Rust, Zig, C++, etc.), `cdd-ctl` must act as an agnostic process supervisor. Built fully on Tokio's async runtime, it acts as an embedded `initd` or `systemd`.
+Because the ecosystem consists of diverse technology stacks (Python, Java, Go, Rust, Zig, C++, etc.), `cdd-gateway` must act as an agnostic process supervisor. Built fully on Tokio's async runtime, it acts as an embedded `initd` or `systemd`.
 
 - **Concurrency:** Spawns distinct tasks for each monitored process, allowing non-blocking I/O handling.
 - **I/O Standardizing:** Captures `stdout` and `stderr` from all 13 RPC servers, tagging and logging lines securely via the unified `log` crate.
@@ -72,19 +58,19 @@ Because the ecosystem consists of diverse technology stacks (Python, Java, Go, R
 
 The architecture compiles down into distinct binaries to support various deployment strategies and interface preferences:
 
-- **`cdd-ctl`**: The default manager. Provides a REST API gateway and spawns/supervises native `cdd-*` executables as background daemons.
-- **`cdd-ctl-wasm`**: The WASM variant of the REST API gateway. Instead of spawning native daemon processes, it uses `wasmtime` to securely evaluate `.wasm` builds of the supported `cdd-*` ecosystems within a robust, multi-tenant sandbox. Unsupported targets (interpreted languages or heavy VMs) fallback to an HTTP 400 rejection.
+- **`cdd-gateway`**: The default manager. Provides a REST API gateway and spawns/supervises native `cdd-*` executables as background daemons.
+- **`cdd-gateway-wasm`**: The WASM variant of the REST API gateway. Instead of spawning native daemon processes, it uses `wasmtime` to securely evaluate `.wasm` builds of the supported `cdd-*` ecosystems within a robust, multi-tenant sandbox. Unsupported targets (interpreted languages or heavy VMs) fallback to an HTTP 400 rejection.
 - **`cdd-rpc`**: Provides a JSON-RPC 2.0 over HTTP interface instead of REST, managing native `cdd-*` background daemons.
 - **`cdd-rpc-wasm`**: Provides a JSON-RPC 2.0 over HTTP interface, securely evaluating payloads via `wasmtime` against `.wasm` modules.
 - **`dump_openapi`**: A utility binary that automatically generates and exports the `openapi.json` schema from the `utoipa` definitions.
 
 ### 5. Git Submodules (`sdks/`)
 
-Instead of relying strictly on network downloads or stale releases, the 13 `cdd-*` language SDKs are bundled as git submodules within the `sdks/` directory. This guarantees that `cdd-ctl` can reliably build and pin all child processes or WASM targets strictly to their latest `master` commits within a unified monorepo-like environment.
+Instead of relying strictly on network downloads or stale releases, the 13 `cdd-*` language SDKs are bundled as git submodules within the `sdks/` directory. This guarantees that `cdd-gateway` can reliably build and pin all child processes or WASM targets strictly to their latest `master` commits within a unified monorepo-like environment.
 
-### 6. Client-Side WASM SDK (`cdd-ctl-wasm-sdk/`)
+### 6. Client-Side WASM SDK (`cdd-gateway-wasm-sdk/`)
 
-This is an isolated TypeScript/NPM package that wraps `@bjorn3/browser_wasi_shim`. It mounts virtual filesystem descriptors, parses WASM execution outputs, and allows executing the 12 fully supported standalone `.wasm` payloads (C, C++, C#, Go, Java, Kotlin, PHP, Python, Ruby, Rust, Swift, TypeScript) directly within a user's web browser, offline. Targets that cannot compile to WASM (like native shell scripts) are unsupported in this purely client-side shim and must gracefully degrade to JSON-RPC HTTP calls back to a native `cdd-ctl` container environment.
+This is an isolated TypeScript/NPM package that wraps `@bjorn3/browser_wasi_shim`. It mounts virtual filesystem descriptors, parses WASM execution outputs, and allows executing the 12 fully supported standalone `.wasm` payloads (C, C++, C#, Go, Java, Kotlin, PHP, Python, Ruby, Rust, Swift, TypeScript) directly within a user's web browser, offline. Targets that cannot compile to WASM (like native shell scripts) are unsupported in this purely client-side shim and must gracefully degrade to JSON-RPC HTTP calls back to a native `cdd-gateway` container environment.
 
 ## Configuration
 

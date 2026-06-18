@@ -8,10 +8,10 @@ const __dirname = path.dirname(__filename);
 
 const CDD_CTL_DIR = path.resolve(__dirname, "..");
 const SDKS_DIR = path.join(CDD_CTL_DIR, "sdks");
-const DEST_DIR = path.join(CDD_CTL_DIR, "cdd-ctl-wasm-sdk", "assets", "wasm");
+const DEST_DIR = path.join(CDD_CTL_DIR, "cdd-gateway-wasm-sdk", "assets", "wasm");
 const SUPPORT_FILE = path.join(
     CDD_CTL_DIR,
-    "cdd-ctl-wasm-sdk",
+    "cdd-gateway-wasm-sdk",
     "assets",
     "wasm-support.json",
 );
@@ -21,14 +21,14 @@ if (!fs.existsSync(DEST_DIR)) {
     fs.mkdirSync(DEST_DIR, { recursive: true });
 }
 
-console.log("Building cdd-ctl-wasm-sdk...");
+console.log("Building cdd-gateway-wasm-sdk...");
 try {
     execSync("npm run build", {
-        cwd: path.join(CDD_CTL_DIR, "cdd-ctl-wasm-sdk"),
+        cwd: path.join(CDD_CTL_DIR, "cdd-gateway-wasm-sdk"),
         stdio: "inherit",
     });
 } catch (e) {
-    console.warn("Failed to build cdd-ctl-wasm-sdk, continuing...");
+    console.warn("Failed to build cdd-gateway-wasm-sdk, continuing...");
 }
 
 if (!fs.existsSync(SDKS_DIR)) {
