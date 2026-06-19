@@ -18,8 +18,11 @@ use std::{
 /// Simple in-memory rate limiter state
 #[derive(Clone)]
 pub struct RateLimiter {
+    /// In-memory requests storage
     requests: Arc<Mutex<HashMap<String, Vec<Instant>>>>,
+    /// Maximum allowed requests
     max_requests: usize,
+    /// Time window for rate limiting
     window: Duration,
 }
 
@@ -58,6 +61,7 @@ impl RateLimiter {
 
 /// Rate limit middleware factory
 pub struct RateLimit {
+    /// Inner rate limiter
     limiter: RateLimiter,
 }
 
@@ -93,10 +97,13 @@ where
 
 /// Rate limit middleware implementation
 pub struct RateLimitMiddleware<S> {
+    /// Inner service
     service: S,
+    /// Rate limiter
     limiter: RateLimiter,
 }
 
+/// Type alias for either body
 type EitherBody<B> = actix_web::body::EitherBody<B>;
 
 impl<S, B> Service<ServiceRequest> for RateLimitMiddleware<S>

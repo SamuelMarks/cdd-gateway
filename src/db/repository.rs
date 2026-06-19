@@ -145,11 +145,7 @@ impl CddRepository for PgRepository {
                 .optional()
         })
         .await;
-        match res {
-            Ok(v) => v,
-            #[cfg(not(tarpaulin_include))]
-            Err(_) => unreachable!("Blocking error cannot happen"),
-        }
+        res.unwrap()
     }
 
     #[cfg(not(tarpaulin_include))]

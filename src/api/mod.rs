@@ -98,6 +98,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
 )]
 pub struct ApiDoc;
 
+/// `SecurityAddon` struct to add security schemes to `OpenAPI`
 struct SecurityAddon;
 
 impl utoipa::Modify for SecurityAddon {

@@ -1,5 +1,5 @@
+#![deny(missing_docs, clippy::missing_docs_in_private_items)]
 #![cfg(not(tarpaulin_include))]
-#![deny(missing_docs)]
 
 //! cdd-gateway binary executable.
 //!
@@ -8,10 +8,14 @@
 use actix_cors::Cors;
 use actix_web::{middleware, web, App, HttpServer};
 use cdd_gateway::config::AppConfig;
+use cdd_gateway::db::establish_connection_pool;
+use cdd_gateway::db::repository::{CddRepository, PgRepository};
+use cdd_gateway::github::client::{GitHubClient, ReqwestGitHubClient};
 use cdd_gateway::proxy::proxy_handler;
 use cdd_gateway::rate_limit::RateLimit;
 use reqwest::Client;
 use std::env;
+use std::sync::Arc;
 use std::time::Duration;
 
 #[actix_web::main]
@@ -40,8 +44,30 @@ async fn main() -> std::io::Result<()> {
         }
     };
 
+    let db_pool = match establish_connection_pool(&config.database_url) {
+        Ok(pool) => pool,
+        Err(e) => {
+            log::error!("Failed to connect to database: {e}");
+            std::process::exit(1);
+        }
+    };
+
+    let repo: Arc<dyn CddRepository> = Arc::new(PgRepository {
+        pool: db_pool.clone(),
+    });
+
+    let github_client: Arc<dyn GitHubClient> = Arc::new(
+        ReqwestGitHubClient::new("dummy_id".to_string(), "dummy_secret".to_string())
+            .unwrap_or_else(|e| {
+                log::error!("Failed to init GitHub client: {e}");
+                std::process::exit(1);
+            }),
+    );
+
     let config_data = web::Data::new(config.clone());
     let client_data = web::Data::new(client);
+    let repo_data = web::Data::new(repo);
+    let github_data = web::Data::new(github_client);
 
     log::info!("Starting CDD Gateway on {server_bind}");
 
@@ -63,6 +89,8 @@ async fn main() -> std::io::Result<()> {
             .wrap(middleware::Logger::default())
             .app_data(config_data.clone())
             .app_data(client_data.clone())
+            .app_data(repo_data.clone())
+            .app_data(github_data.clone())
             // Existing API routes
             .configure(cdd_gateway::api::configure)
             // Unmatched routes are proxied

@@ -11,6 +11,7 @@ use sha2::Sha256;
 use std::sync::Arc;
 use utoipa::ToSchema;
 
+/// Type alias for HMAC SHA256 used for webhook signature verification
 type HmacSha256 = Hmac<Sha256>;
 
 /// Response payload indicating sync status

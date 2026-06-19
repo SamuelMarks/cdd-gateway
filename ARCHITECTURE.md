@@ -1,77 +1,63 @@
 # cdd-gateway Architecture
 
-> This document details the internal technical architecture, database models, daemon manager, and WebAssembly execution engine of the `cdd-gateway` ecosystem.
+> This document details the internal technical architecture, database models, and proxy capabilities of `cdd-gateway`. 
 
-`cdd-gateway` serves as the central orchestration layer and API gateway for the multi-language `cdd-*` toolchain. Rewritten natively in Rust, it provides a highly concurrent, reliable foundation for managing the execution, synchronization, and authentication of 13+ distinct language SDKs and components. It serves as the primary backend API and control plane for the [`cdd-web-ui`](https://github.com/SamuelMarks/cdd-web-ui) graphical interface.
+`cdd-gateway` serves as the unified ingress, reverse proxy, and control plane backend for the multi-language `cdd-*` toolchain. Built natively in Rust using `actix-web`, it provides a highly concurrent, reliable foundation for authentication, database synchronization, and API routing. 
 
-It operates primarily across three distinct layers:
+It acts as the primary backend and Control Plane for the [`cdd-web-ui`](https://github.com/SamuelMarks/cdd-web-ui) graphical interface. While `cdd-web-ui` can operate fully offline via client-side WASM execution, `cdd-gateway` is utilized when users configure the UI to run in connected modes (e.g., syncing data, authenticating users, or offloading code generation to remote runners).
 
-1. **The API Gateway (Actix Web)** - Exposing both REST and JSON-RPC interfaces.
-2. **The Database & ORM (PostgreSQL & Diesel)**
-3. **The Process & Lifecycle Daemon Manager (Tokio)**
-4. **The WASM Execution Engine (`wasmtime`)** - Evaluates language-specific payloads directly in WASM execution modes.
+It operates primarily across two distinct local layers while delegating execution to the `cdd-engine` backend:
+
+1. **The Control Plane API & Proxy (Actix Web)** - Exposing REST endpoints, managing RBAC, and proxying unmatched routes.
+2. **The Database & ORM (PostgreSQL & Diesel)** - Managing state for users, orgs, and repository metadata.
 
 ## High-Level Diagram
 
 ```mermaid
 graph TD
-    UI[cdd-web-ui<br/>Angular UI & CLI Tools]
-    Gateway[cdd-gateway<br/>Actix Web]
-    DB[(PostgreSQL DB<br/>Organizations, Users, Repos, Releases, RBAC)]
-    Daemon[Daemon Manager<br/>Tokio Tasks]
-    Servers[cdd-* JSON-RPC Servers<br/>Python, Rust, Go, TypeScript, etc.]
+    UI[cdd-web-ui<br/>Angular UI]
+    Docs[cdd-docs-ui<br/>API Documentation]
+    
+    Gateway[cdd-gateway<br/>Actix Web Ingress & Control Plane]
+    DB[(PostgreSQL DB<br/>Organizations, Users, Repos, Releases)]
+    Engine[cdd-engine<br/>Core Generator / Daemon & Wasmtime]
+    Servers[cdd-* language SDKs]
 
-    UI -->|HTTP/REST / OpenAPI| Gateway
+    UI -->|JSON-RPC / REST / OpenAPI| Gateway
+    Docs -->|Fetch SDK schemas| Gateway
+    
     Gateway -->|DB Queries via Diesel| DB
-    Gateway -->|Lifecycle Events / Wasmtime calls| Daemon
-    Daemon -->|Spawns & Tracks| Servers
+    Gateway -->|Delegates Generation| Engine
+    Engine -->|Executes Native/WASM| Servers
 ```
 
 ## Core Subsystems
 
-### 1. The REST API Gateway (`src/api/`)
+### 1. The REST API Gateway & Control Plane (`src/api/`)
 
-Built upon `actix-web`, this component provides a secure, OpenAPI-compliant REST interface.
+Built upon `actix-web`, this component serves as a secure, OpenAPI-compliant backend.
 
-- **Routing & Sync:** Provides endpoints for managing Organizations, Users, Repositories (SDKs), and Releases. Future extensions handle secret management and direct syncing with the GitHub API.
+- **Routing & Sync:** Provides endpoints for managing Organizations, Users, Repositories (SDKs), and Releases. Manages webhook integrations and payload handling directly with GitHub (`src/api/github.rs`).
 - **Authentication:** Enforces JWT `Bearer` token auth (`src/api/auth_middleware.rs`). Issues tokens via an OAuth2 password grant flow hashed via **Argon2** and supports GitHub OAuth login stubs.
+- **Reverse Proxy:** Unmatched routes are securely forwarded via the `proxy_handler` (`src/proxy.rs`), allowing this gateway to sit in front of underlying worker nodes or the `cdd-engine` core generator without exposing them directly.
 - **OpenAPI / Swagger:** Utilizes `utoipa` to generate live OpenAPI 3.x specifications automatically from the Rust codebase. A live sandbox is exposed at `/swagger-ui/`.
 
 ### 2. Database & Data Models (`src/db/`)
 
-The database layer uses `diesel` (an asynchronous-friendly ORM in Rust) wrapping a `r2d2` PostgreSQL connection pool.
+The database layer uses `diesel` (an asynchronous-friendly ORM in Rust) wrapping an `r2d2` PostgreSQL connection pool.
 
 - **Entities:** Manages the relational mapping of `Users`, `Organizations`, `Repositories`, and `Releases`.
-- **RBAC (Role-Based Access Control):** Uses many-to-many link tables (`organization_users`) storing explicit string-based roles (e.g., `"owner"`, `"member"`) to securely gate access to mutation APIs (like `POST /repos`).
-- **Abstract Repository Pattern:** To ensure 100% test coverage and dependency inversion, `CddRepository` provides an async trait abstraction, allowing the business logic to be tested against a `mockall` mock repository without a live database.
+- **RBAC (Role-Based Access Control):** Uses many-to-many link tables (e.g., `organization_users`) storing explicit string-based roles (like `"owner"`, `"member"`) to securely gate access to mutation APIs.
+- **Abstract Repository Pattern:** To ensure 100% test coverage and dependency inversion, `CddRepository` provides an async trait abstraction, allowing the business logic to be tested against a `mockall` mock repository without requiring a live database connection.
 
-### 3. The Daemon Manager (`src/daemon.rs`)
+### 3. Execution Delegation (`cdd-engine`)
 
-Because the ecosystem consists of diverse technology stacks (Python, Java, Go, Rust, Zig, C++, etc.), `cdd-gateway` must act as an agnostic process supervisor. Built fully on Tokio's async runtime, it acts as an embedded `initd` or `systemd`.
+`cdd-gateway` itself does *not* manage daemon processes or WASM execution directly. Instead, it relies on the upstream `cdd-engine` crate (and corresponding standalone JSON-RPC daemon services like `cdd-rpc` or `cdd-rpc-wasm`) to perform the heavy lifting of AST parsing and WASM execution. The gateway acts as the secure middleman, authenticating the `cdd-web-ui` requests before proxying the generation workloads down to the engine layer.
 
-- **Concurrency:** Spawns distinct tasks for each monitored process, allowing non-blocking I/O handling.
-- **I/O Standardizing:** Captures `stdout` and `stderr` from all 13 RPC servers, tagging and logging lines securely via the unified `log` crate.
-- **Resilience:** Implements auto-restart backoffs, tracking uptime to distinguish between persistent crashes (which eventually halt retries) and sporadic failures (which reset retry counters upon stabilization).
-- **Graceful Shutdown:** Subscribes all processes to a Tokio `watch` channel to cleanly cascade termination signals across the entire language-server fleet when the main gateway stops.
+### 4. Client-Side WASM Integration (`cdd-gateway-wasm-sdk/`)
 
-### 4. Binary Targets (`src/bin/`)
-
-The architecture compiles down into distinct binaries to support various deployment strategies and interface preferences:
-
-- **`cdd-gateway`**: The default manager. Provides a REST API gateway and spawns/supervises native `cdd-*` executables as background daemons.
-- **`cdd-gateway-wasm`**: The WASM variant of the REST API gateway. Instead of spawning native daemon processes, it uses `wasmtime` to securely evaluate `.wasm` builds of the supported `cdd-*` ecosystems within a robust, multi-tenant sandbox. Unsupported targets (interpreted languages or heavy VMs) fallback to an HTTP 400 rejection.
-- **`cdd-rpc`**: Provides a JSON-RPC 2.0 over HTTP interface instead of REST, managing native `cdd-*` background daemons.
-- **`cdd-rpc-wasm`**: Provides a JSON-RPC 2.0 over HTTP interface, securely evaluating payloads via `wasmtime` against `.wasm` modules.
-- **`dump_openapi`**: A utility binary that automatically generates and exports the `openapi.json` schema from the `utoipa` definitions.
-
-### 5. Git Submodules (`sdks/`)
-
-Instead of relying strictly on network downloads or stale releases, the 13 `cdd-*` language SDKs are bundled as git submodules within the `sdks/` directory. This guarantees that `cdd-gateway` can reliably build and pin all child processes or WASM targets strictly to their latest `master` commits within a unified monorepo-like environment.
-
-### 6. Client-Side WASM SDK (`cdd-gateway-wasm-sdk/`)
-
-This is an isolated TypeScript/NPM package that wraps `@bjorn3/browser_wasi_shim`. It mounts virtual filesystem descriptors, parses WASM execution outputs, and allows executing the 12 fully supported standalone `.wasm` payloads (C, C++, C#, Go, Java, Kotlin, PHP, Python, Ruby, Rust, Swift, TypeScript) directly within a user's web browser, offline. Targets that cannot compile to WASM (like native shell scripts) are unsupported in this purely client-side shim and must gracefully degrade to JSON-RPC HTTP calls back to a native `cdd-gateway` container environment.
+While the gateway serves as the cloud backend, `cdd-gateway-wasm-sdk/` provides the bridge for `@bjorn3/browser_wasi_shim` enabling the `cdd-web-ui` to bypass the cloud backend entirely and execute generation securely within the browser sandbox when configured for Offline Mode.
 
 ## Configuration
 
-Configurations are handled elegantly via the `config` crate, resolving environment variable overrides (`CDD__SERVER_BIND`) or falling back to defaults in a `config.json` file.
+Configurations are handled elegantly via the `config` crate, resolving environment variable overrides (like `CDD__SERVER_BIND`) or falling back to defaults.

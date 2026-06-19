@@ -46,11 +46,7 @@ pub struct RegisterPayload {
 }
 
 /// Generate a signed JWT for the given user, using the secret from `AppConfig`.
-fn generate_token(
-    user_id: i32,
-    username: &str,
-    jwt_secret: &[u8],
-) -> Result<String, crate::error::CddGatewayError> {
+fn generate_token(user_id: i32, username: &str, jwt_secret: &[u8]) -> String {
     let claims = crate::api::auth_middleware::Claims {
         sub: user_id,
         exp: (chrono::Utc::now() + chrono::Duration::hours(24))
@@ -59,23 +55,25 @@ fn generate_token(
             .unwrap_or(0),
         username: username.to_string(),
     };
-    Ok(encode(
+    encode(
         &Header::default(),
         &claims,
         &EncodingKey::from_secret(jwt_secret),
     )
-    .unwrap_or_else(|_| unreachable!("JWT encode cannot fail")))
+    .unwrap_or_else(|_| unreachable!("JWT encode cannot fail"))
 }
 
-fn hash_password(password: &str) -> Result<String, crate::error::CddGatewayError> {
+/// Hash a password using Argon2
+fn hash_password(password: &str) -> String {
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
     let hash = argon2
         .hash_password(password.as_bytes(), &salt)
         .unwrap_or_else(|_| unreachable!("Hashing cannot fail"));
-    Ok(hash.to_string())
+    hash.to_string()
 }
 
+/// Verify a password against an Argon2 hash
 fn verify_password(password: &str, hash: &str) -> bool {
     PasswordHash::new(hash).is_ok_and(|parsed_hash| {
         Argon2::default()
@@ -103,11 +101,7 @@ pub async fn register(
     repo: web::Data<Arc<dyn CddRepository>>,
     cfg: web::Data<AppConfig>,
 ) -> Result<HttpResponse, crate::error::CddGatewayError> {
-    let hashed_pw = if let Some(pw) = payload.password.as_ref() {
-        Some(hash_password(pw).unwrap_or_else(|_| unreachable!("JWT encode cannot fail")))
-    } else {
-        None
-    };
+    let hashed_pw = payload.password.as_ref().map(|pw| hash_password(pw));
 
     let user = repo
         .create_user(
@@ -118,8 +112,7 @@ pub async fn register(
         )
         .await?;
 
-    let token = generate_token(user.id, &user.username, cfg.jwt_secret.as_bytes())
-        .unwrap_or_else(|_| unreachable!("JWT encode cannot fail"));
+    let token = generate_token(user.id, &user.username, cfg.jwt_secret.as_bytes());
 
     Ok(HttpResponse::Created().json(AuthResponse { token }))
 }
@@ -149,8 +142,7 @@ pub async fn login_password(
                 if let Some(h) = &user.password_hash {
                     if verify_password(pw, h) {
                         let token =
-                            generate_token(user.id, &user.username, cfg.jwt_secret.as_bytes())
-                                .unwrap_or_else(|_| unreachable!("JWT encode cannot fail"));
+                            generate_token(user.id, &user.username, cfg.jwt_secret.as_bytes());
                         return Ok(HttpResponse::Ok().json(AuthResponse { token }));
                     }
                 }
@@ -212,8 +204,7 @@ pub async fn login_github(
         .await
     {
         Ok(user) => {
-            let token = generate_token(user.id, &user.username, cfg.jwt_secret.as_bytes())
-                .unwrap_or_else(|_| unreachable!("JWT encode cannot fail"));
+            let token = generate_token(user.id, &user.username, cfg.jwt_secret.as_bytes());
             Ok(HttpResponse::Ok().json(AuthResponse { token }))
         }
         Err(_) => Ok(HttpResponse::InternalServerError().finish()),
@@ -396,9 +387,7 @@ mod tests {
                 github_id: None,
                 username: "test".into(),
                 email: "test@example.com".into(),
-                password_hash: Some(
-                    hash_password("pwd").unwrap_or_else(|_| panic!("expected hash")),
-                ),
+                password_hash: Some(hash_password("pwd")),
             }))
         });
 
@@ -432,9 +421,7 @@ mod tests {
                 github_id: None,
                 username: "test".into(),
                 email: "test@example.com".into(),
-                password_hash: Some(
-                    hash_password("pwd").unwrap_or_else(|_| panic!("expected hash")),
-                ),
+                password_hash: Some(hash_password("pwd")),
             }))
         });
 
@@ -468,9 +455,7 @@ mod tests {
                 github_id: None,
                 username: "test".into(),
                 email: "test@example.com".into(),
-                password_hash: Some(
-                    hash_password("pwd2").unwrap_or_else(|_| panic!("expected hash")),
-                ),
+                password_hash: Some(hash_password("pwd2")),
             }))
         });
 

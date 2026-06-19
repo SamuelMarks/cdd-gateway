@@ -1,4 +1,4 @@
-#![deny(missing_docs)]
+#![deny(missing_docs, clippy::missing_docs_in_private_items)]
 
 //! cdd-gateway core library
 
