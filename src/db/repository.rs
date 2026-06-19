@@ -138,14 +138,14 @@ pub struct PgRepository {
 impl CddRepository for PgRepository {
     async fn find_user_by_username(&self, username: String) -> Result<Option<User>, Error> {
         let mut conn = self.get_conn()?;
-        let res = web::block(move || {
+        web::block(move || {
             users::table
                 .filter(users::username.eq(username))
                 .first::<User>(&mut conn)
                 .optional()
         })
-        .await;
-        res.unwrap()
+        .await
+        .map_err(|_| Error::NotFound)?
     }
 
     #[cfg(not(tarpaulin_include))]

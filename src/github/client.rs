@@ -72,40 +72,59 @@ pub trait GitHubClient: Send + Sync {
 #[allow(dead_code)]
 #[cfg(not(tarpaulin_include))]
 pub struct ReqwestGitHubClient {
+    /// The reqwest client
     client: Client,
+    /// The GitHub OAuth client ID
     client_id: String,
+    /// The GitHub OAuth client secret
     client_secret: String,
 }
 
+/// Exchange request payload
 #[derive(Serialize)]
 struct ExchangeRequest<'a> {
+    /// The client ID
     client_id: &'a str,
+    /// The client secret
     client_secret: &'a str,
+    /// The authorization code
     code: &'a str,
 }
 
+/// Exchange response payload
 #[derive(Deserialize)]
 struct ExchangeResponse {
+    /// The access token
     access_token: Option<String>,
+    /// Error description if the exchange failed
     error_description: Option<String>,
 }
 
+/// Request payload for creating a release
 #[derive(Serialize)]
 struct CreateReleaseRequest<'a> {
+    /// The tag name for the release
     tag_name: &'a str,
+    /// The name of the release
     name: Option<&'a str>,
+    /// The body/description of the release
     body: Option<&'a str>,
 }
 
+/// Request payload for triggering a workflow
 #[derive(Serialize)]
 struct TriggerWorkflowRequest<'a> {
+    /// The ref/branch to trigger the workflow on
     #[serde(rename = "ref")]
     ref_branch: &'a str,
 }
 
+/// Request payload for creating a secret
 #[derive(Serialize)]
 struct CreateSecretRequest<'a> {
+    /// The encrypted value of the secret
     encrypted_value: &'a str,
+    /// The key ID used for encryption
     key_id: &'a str,
 }
 
@@ -140,11 +159,13 @@ impl ReqwestGitHubClient {
         })
     }
 
+    /// Helper to map reqwest errors to strings
     fn map_err(e: &reqwest::Error) -> String {
         log::error!("GitHub API Error: {e}");
         e.to_string()
     }
 
+    /// Helper to build a request with the required headers
     fn build_request(
         &self,
         method: reqwest::Method,
