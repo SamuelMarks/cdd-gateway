@@ -8,7 +8,6 @@ use reqwest::Client;
 /// # Errors
 /// error
 #[allow(clippy::future_not_send)]
-#[cfg(not(tarpaulin_include))]
 pub async fn proxy_handler(
     req: HttpRequest,
     bytes: web::Bytes,

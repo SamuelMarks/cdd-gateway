@@ -1,6 +1,5 @@
 use crate::db::repository::CddRepository;
 use crate::db::tests::{setup_test_db, TestError};
-use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
 #[tokio::test]
@@ -8,11 +7,7 @@ async fn test_create_and_find_user() -> Result<(), TestError> {
     let repo = setup_test_db()?;
     let username = format!("user_{}", Uuid::new_v4());
     let email = format!("{username}@example.com");
-    let github_id = SystemTime::now()
-        .duration_since(UNIX_EPOCH)?
-        .as_millis()
-        .try_into()
-        .unwrap_or(0);
+    let github_id = rand::random::<i64>().abs();
 
     let user = repo
         .create_user(
@@ -44,12 +39,7 @@ async fn test_upsert_user() -> Result<(), TestError> {
     let repo = setup_test_db()?;
     let username = format!("user_{}", Uuid::new_v4());
     let email = format!("{username}@example.com");
-    let github_id = SystemTime::now()
-        .duration_since(UNIX_EPOCH)?
-        .as_millis()
-        .try_into()
-        .unwrap_or(0)
-        + 1;
+    let github_id = rand::random::<i64>().abs();
 
     let user1 = repo
         .upsert_user(github_id, username.clone(), email.clone())

@@ -78,6 +78,10 @@ pub struct ReqwestGitHubClient {
     client_id: String,
     /// The GitHub OAuth client secret
     client_secret: String,
+    /// API base URL
+    pub api_base_url: String,
+    /// HTML base URL
+    pub html_base_url: String,
 }
 
 /// Exchange request payload
@@ -156,6 +160,8 @@ impl ReqwestGitHubClient {
             client,
             client_id,
             client_secret,
+            api_base_url: "https://api.github.com".to_string(),
+            html_base_url: "https://github.com".to_string(),
         })
     }
 
@@ -187,7 +193,7 @@ impl GitHubClient for ReqwestGitHubClient {
         };
         let res: ExchangeResponse = self
             .client
-            .post("https://github.com/login/oauth/access_token")
+            .post(&format!("{}/login/oauth/access_token", self.html_base_url))
             .json(&req)
             .send()
             .await
@@ -206,21 +212,25 @@ impl GitHubClient for ReqwestGitHubClient {
     }
 
     async fn get_user(&self, token: &str) -> Result<GitHubUser, String> {
-        self.build_request(reqwest::Method::GET, "https://api.github.com/user", token)
-            .send()
-            .await
-            .map_err(|e| Self::map_err(&e))?
-            .error_for_status()
-            .map_err(|e| Self::map_err(&e))?
-            .json()
-            .await
-            .map_err(|e| Self::map_err(&e))
+        self.build_request(
+            reqwest::Method::GET,
+            &format!("{}/user", self.api_base_url),
+            token,
+        )
+        .send()
+        .await
+        .map_err(|e| Self::map_err(&e))?
+        .error_for_status()
+        .map_err(|e| Self::map_err(&e))?
+        .json()
+        .await
+        .map_err(|e| Self::map_err(&e))
     }
 
     async fn get_emails(&self, token: &str) -> Result<Vec<GitHubEmail>, String> {
         self.build_request(
             reqwest::Method::GET,
-            "https://api.github.com/user/emails",
+            &format!("{}/user/emails", self.api_base_url),
             token,
         )
         .send()
@@ -236,7 +246,7 @@ impl GitHubClient for ReqwestGitHubClient {
     async fn list_orgs(&self, token: &str) -> Result<Vec<GitHubOrg>, String> {
         self.build_request(
             reqwest::Method::GET,
-            "https://api.github.com/user/orgs",
+            &format!("{}/user/orgs", self.api_base_url),
             token,
         )
         .send()
@@ -250,7 +260,7 @@ impl GitHubClient for ReqwestGitHubClient {
     }
 
     async fn list_repos(&self, token: &str, org: &str) -> Result<Vec<GitHubRepo>, String> {
-        let url = format!("https://api.github.com/orgs/{org}/repos");
+        let url = format!("{}/orgs/{org}/repos", self.api_base_url);
         self.build_request(reqwest::Method::GET, &url, token)
             .send()
             .await
@@ -271,7 +281,7 @@ impl GitHubClient for ReqwestGitHubClient {
         name: Option<String>,
         body: Option<String>,
     ) -> Result<GitHubRelease, String> {
-        let url = format!("https://api.github.com/repos/{owner}/{repo}/releases");
+        let url = format!("{}/repos/{owner}/{repo}/releases", self.api_base_url);
         let req = CreateReleaseRequest {
             tag_name,
             name: name.as_deref(),
@@ -298,7 +308,8 @@ impl GitHubClient for ReqwestGitHubClient {
         ref_branch: &str,
     ) -> Result<(), String> {
         let url = format!(
-            "https://api.github.com/repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches"
+            "{}/repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches",
+            self.api_base_url
         );
         let req = TriggerWorkflowRequest { ref_branch };
         self.build_request(reqwest::Method::POST, &url, token)
@@ -317,7 +328,10 @@ impl GitHubClient for ReqwestGitHubClient {
         owner: &str,
         repo: &str,
     ) -> Result<GitHubPublicKey, String> {
-        let url = format!("https://api.github.com/repos/{owner}/{repo}/actions/secrets/public-key");
+        let url = format!(
+            "{}/repos/{owner}/{repo}/actions/secrets/public-key",
+            self.api_base_url
+        );
         self.build_request(reqwest::Method::GET, &url, token)
             .send()
             .await
@@ -338,8 +352,10 @@ impl GitHubClient for ReqwestGitHubClient {
         encrypted_value: &str,
         key_id: &str,
     ) -> Result<(), String> {
-        let url =
-            format!("https://api.github.com/repos/{owner}/{repo}/actions/secrets/{secret_name}");
+        let url = format!(
+            "{}/repos/{owner}/{repo}/actions/secrets/{secret_name}",
+            self.api_base_url
+        );
         let req = CreateSecretRequest {
             encrypted_value,
             key_id,
@@ -444,5 +460,81 @@ mod tests {
             .create_release("token", "owner", "repo", "tag", None, None)
             .await;
         assert!(res.is_err());
+    }
+
+    #[actix_web::test]
+    async fn test_network_errors() {
+        let mut client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string()).unwrap();
+        client.api_base_url = "http://127.0.0.1:1".to_string();
+        client.html_base_url = "http://127.0.0.1:1".to_string();
+
+        let token = "dummy";
+
+        let res = client.exchange_code("code").await;
+        assert!(res.is_err());
+
+        let res = client.get_user(token).await;
+        assert!(res.is_err());
+
+        let res = client.get_emails(token).await;
+        assert!(res.is_err());
+
+        let res = client.list_orgs(token).await;
+        assert!(res.is_err());
+
+        let res = client.list_repos(token, "org").await;
+        assert!(res.is_err());
+
+        let res = client
+            .create_repo_secret(token, "owner", "repo", "sec", "val", "kid")
+            .await;
+        assert!(res.is_err());
+
+        let res = client.get_repo_public_key(token, "owner", "repo").await;
+        assert!(res.is_err());
+
+        let res = client
+            .create_release(token, "owner", "repo", "tag", None, None)
+            .await;
+        assert!(res.is_err());
+
+        let res = client
+            .trigger_workflow(token, "owner", "repo", "wk", "branch")
+            .await;
+        assert!(res.is_err());
+    }
+
+    #[actix_web::test]
+    async fn test_exchange_code_no_token() {
+        use httpmock::prelude::*;
+        use httpmock::MockServer;
+
+        let server = MockServer::start();
+        let mut client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string()).unwrap();
+        client.html_base_url = server.base_url();
+
+        let _mock = server.mock(|when, then| {
+            when.method(POST).path("/login/oauth/access_token");
+            then.status(200).json_body(serde_json::json!({
+                "error_description": "bad code"
+            }));
+        });
+
+        let res = client.exchange_code("code").await;
+        assert_eq!(res.unwrap_err(), "bad code");
+
+        let server2 = MockServer::start();
+        let mut client2 = ReqwestGitHubClient::new("id".to_string(), "sec".to_string()).unwrap();
+        client2.html_base_url = server2.base_url();
+
+        let _mock2 = server2.mock(|when, then| {
+            when.method(POST).path("/login/oauth/access_token");
+            then.status(200).json_body(serde_json::json!({
+                "error": "true"
+            }));
+        });
+
+        let res2 = client2.exchange_code("code2").await;
+        assert_eq!(res2.unwrap_err(), "Unknown exchange error");
     }
 }

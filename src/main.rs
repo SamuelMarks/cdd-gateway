@@ -1,5 +1,5 @@
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![deny(missing_docs, clippy::missing_docs_in_private_items)]
-#![cfg(not(tarpaulin_include))]
 
 //! cdd-gateway binary executable.
 //!
@@ -18,51 +18,32 @@ use std::env;
 use std::sync::Arc;
 use std::time::Duration;
 
+#[cfg_attr(coverage_nightly, coverage(off))]
+#[cfg(not(tarpaulin_include))]
 #[actix_web::main]
-async fn main() -> std::io::Result<()> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize env_logger for structured logging/tracing
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
     // Load configuration
     let config_path = env::var("CDD_CONFIG_PATH").ok();
-    let config = match AppConfig::load(config_path.as_deref()) {
-        Ok(c) => c,
-        Err(e) => {
-            log::error!("Failed to load configuration: {e}");
-            std::process::exit(1);
-        }
-    };
+    let config = AppConfig::load(config_path.as_deref())?;
 
     let server_bind = config.server_bind.clone();
 
     // Create Reqwest client for proxying
-    let client = match Client::builder().build() {
-        Ok(c) => c,
-        Err(e) => {
-            log::error!("Failed to build reqwest client: {e}");
-            std::process::exit(1);
-        }
-    };
+    let client = Client::builder().build()?;
 
-    let db_pool = match establish_connection_pool(&config.database_url) {
-        Ok(pool) => pool,
-        Err(e) => {
-            log::error!("Failed to connect to database: {e}");
-            std::process::exit(1);
-        }
-    };
+    let db_pool = establish_connection_pool(&config.database_url)?;
 
     let repo: Arc<dyn CddRepository> = Arc::new(PgRepository {
         pool: db_pool.clone(),
     });
 
-    let github_client: Arc<dyn GitHubClient> = Arc::new(
-        ReqwestGitHubClient::new("dummy_id".to_string(), "dummy_secret".to_string())
-            .unwrap_or_else(|e| {
-                log::error!("Failed to init GitHub client: {e}");
-                std::process::exit(1);
-            }),
-    );
+    let github_client: Arc<dyn GitHubClient> = Arc::new(ReqwestGitHubClient::new(
+        "dummy_id".to_string(),
+        "dummy_secret".to_string(),
+    )?);
 
     let config_data = web::Data::new(config.clone());
     let client_data = web::Data::new(client);
@@ -98,5 +79,7 @@ async fn main() -> std::io::Result<()> {
     })
     .bind(&server_bind)?
     .run()
-    .await
+    .await?;
+
+    Ok(())
 }

@@ -17,7 +17,6 @@ pub trait CddRepository: Send + Sync {
     /// Find a user by username
     async fn find_user_by_username(&self, username: String) -> Result<Option<User>, Error>;
     /// Find a user by id
-    #[cfg(not(tarpaulin_include))]
     async fn find_user_by_id(&self, id: i32) -> Result<Option<User>, Error>;
     /// Create a new user
     async fn create_user(
@@ -112,14 +111,11 @@ impl PgRepository {
     /// Helper to get a database connection
     /// # Errors
     /// Returns an error on db connection failure
-    #[cfg(not(tarpaulin_include))]
     pub fn get_conn(
         &self,
     ) -> Result<r2d2::PooledConnection<ConnectionManager<PgConnection>>, Error> {
         self.pool.get().map_err(|e| {
             // Map the r2d2::PoolError into a diesel::result::Error
-            #[cfg(not(tarpaulin_include))]
-            #[cfg(not(tarpaulin_include))]
             Error::DatabaseError(
                 diesel::result::DatabaseErrorKind::UnableToSendCommand,
                 Box::new(e.to_string()),
@@ -148,7 +144,6 @@ impl CddRepository for PgRepository {
         .map_err(|_| Error::NotFound)?
     }
 
-    #[cfg(not(tarpaulin_include))]
     async fn find_user_by_id(&self, id: i32) -> Result<Option<User>, Error> {
         let mut conn = self.get_conn()?;
         web::block(move || users::table.find(id).first::<User>(&mut conn).optional())

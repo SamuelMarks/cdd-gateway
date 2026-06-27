@@ -59,3 +59,22 @@ async fn test_upsert_repository() -> Result<(), TestError> {
     assert_eq!(repo2.name, new_name);
     Ok(())
 }
+
+#[test]
+fn test_get_conn_error() {
+    use crate::db::repository::PgRepository;
+    use diesel::r2d2::{ConnectionManager, Pool};
+    use diesel::PgConnection;
+
+    // Create a pool that times out instantly
+    let manager =
+        ConnectionManager::<PgConnection>::new("postgres://invalid:invalid@localhost/invalid");
+    let pool = Pool::builder()
+        .connection_timeout(std::time::Duration::from_millis(1))
+        .test_on_check_out(false)
+        .build_unchecked(manager);
+
+    let repo = PgRepository { pool };
+    let result = repo.get_conn();
+    assert!(result.is_err());
+}

@@ -529,17 +529,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_login_github_get_user_fail_but_emails_succeed() {
-        let mut mock_repo = MockCddRepository::new();
-        // Since get_user_by_email doesn't exist, upsert_user handles creating/updating.
-        mock_repo.expect_upsert_user().returning(|_, _, _| {
-            Ok(crate::db::models::User {
-                id: 1,
-                github_id: None,
-                username: "test_gh".to_string(),
-                email: "gh@example.com".to_string(),
-                password_hash: None,
-            })
-        });
+        let mock_repo = MockCddRepository::new();
 
         let mut mock_gh = MockGitHubClient::new();
         mock_gh
@@ -548,13 +538,6 @@ mod tests {
         mock_gh
             .expect_get_user()
             .returning(|_| Err("failed".to_string()));
-        mock_gh.expect_get_emails().returning(|_| {
-            Ok(vec![crate::github::models::GitHubEmail {
-                email: "gh@example.com".to_string(),
-                primary: true,
-                verified: true,
-            }])
-        });
 
         let config = AppConfig::load(None).unwrap_or_else(|_| panic!("expected value"));
         let repo: Arc<dyn CddRepository> = Arc::new(mock_repo);

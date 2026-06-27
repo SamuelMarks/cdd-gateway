@@ -118,7 +118,6 @@ where
 
     forward_ready!(service);
 
-    #[cfg(not(tarpaulin_include))]
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let ip = req
             .peer_addr()
