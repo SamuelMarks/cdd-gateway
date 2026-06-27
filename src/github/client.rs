@@ -193,7 +193,7 @@ impl GitHubClient for ReqwestGitHubClient {
         };
         let res: ExchangeResponse = self
             .client
-            .post(&format!("{}/login/oauth/access_token", self.html_base_url))
+            .post(format!("{}/login/oauth/access_token", self.html_base_url))
             .json(&req)
             .send()
             .await
@@ -464,7 +464,10 @@ mod tests {
 
     #[actix_web::test]
     async fn test_network_errors() {
-        let mut client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string()).unwrap();
+        let mut client = match ReqwestGitHubClient::new("id".to_string(), "sec".to_string()) {
+            Ok(c) => c,
+            Err(e) => panic!("Failed to create client: {e}"),
+        };
         client.api_base_url = "http://127.0.0.1:1".to_string();
         client.html_base_url = "http://127.0.0.1:1".to_string();
 
@@ -510,7 +513,10 @@ mod tests {
         use httpmock::MockServer;
 
         let server = MockServer::start();
-        let mut client = ReqwestGitHubClient::new("id".to_string(), "sec".to_string()).unwrap();
+        let mut client = match ReqwestGitHubClient::new("id".to_string(), "sec".to_string()) {
+            Ok(c) => c,
+            Err(e) => panic!("Failed to create client: {e}"),
+        };
         client.html_base_url = server.base_url();
 
         let _mock = server.mock(|when, then| {
@@ -521,10 +527,16 @@ mod tests {
         });
 
         let res = client.exchange_code("code").await;
-        assert_eq!(res.unwrap_err(), "bad code");
+        let Err(err) = res else {
+            panic!("Expected error")
+        };
+        assert_eq!(err, "bad code");
 
         let server2 = MockServer::start();
-        let mut client2 = ReqwestGitHubClient::new("id".to_string(), "sec".to_string()).unwrap();
+        let mut client2 = match ReqwestGitHubClient::new("id".to_string(), "sec".to_string()) {
+            Ok(c) => c,
+            Err(e) => panic!("Failed to create client: {e}"),
+        };
         client2.html_base_url = server2.base_url();
 
         let _mock2 = server2.mock(|when, then| {
@@ -535,6 +547,9 @@ mod tests {
         });
 
         let res2 = client2.exchange_code("code2").await;
-        assert_eq!(res2.unwrap_err(), "Unknown exchange error");
+        let Err(err2) = res2 else {
+            panic!("Expected error")
+        };
+        assert_eq!(err2, "Unknown exchange error");
     }
 }
