@@ -58,7 +58,7 @@ jobs:
         run: cargo clippy --all-targets --all-features -- -D warnings
 
       - name: Run tests & coverage
-        run: cargo tarpaulin --verbose --workspace --timeout 600 --out xml
+        run: cargo tarpaulin --verbose --workspace --timeout 600 --out xml --engine llvm
 
       - name: Build docs
         run: cargo doc --no-deps
