@@ -1,5 +1,3 @@
-#![cfg(not(tarpaulin_include))]
-
 use crate::github::models::{
     GitHubEmail, GitHubOrg, GitHubPublicKey, GitHubRelease, GitHubRepo, GitHubUser,
 };
@@ -70,7 +68,6 @@ pub trait GitHubClient: Send + Sync {
 
 /// Reqwest implementation of `GitHubClient`
 #[allow(dead_code)]
-#[cfg(not(tarpaulin_include))]
 pub struct ReqwestGitHubClient {
     /// The reqwest client
     client: Client,
@@ -183,7 +180,6 @@ impl ReqwestGitHubClient {
 }
 
 #[async_trait]
-#[cfg(not(tarpaulin_include))]
 impl GitHubClient for ReqwestGitHubClient {
     async fn exchange_code(&self, code: &str) -> Result<String, String> {
         let req = ExchangeRequest {
@@ -485,24 +481,24 @@ mod tests {
         let res = client.list_orgs(token).await;
         assert!(res.is_err());
 
-        let res = client.list_repos(token, "org").await;
+        let res = client.list_repos("org", token).await;
+        assert!(res.is_err());
+
+        let res = client.get_repo_public_key("owner", "repo", token).await;
         assert!(res.is_err());
 
         let res = client
-            .create_repo_secret(token, "owner", "repo", "sec", "val", "kid")
+            .create_repo_secret("owner", "repo", "key", "val", "kid", token)
             .await;
         assert!(res.is_err());
 
-        let res = client.get_repo_public_key(token, "owner", "repo").await;
+        let res = client
+            .trigger_workflow("owner", "repo", "wf", "ref", token)
+            .await;
         assert!(res.is_err());
 
         let res = client
             .create_release(token, "owner", "repo", "tag", None, None)
-            .await;
-        assert!(res.is_err());
-
-        let res = client
-            .trigger_workflow(token, "owner", "repo", "wk", "branch")
             .await;
         assert!(res.is_err());
     }
@@ -551,5 +547,123 @@ mod tests {
             panic!("Expected error")
         };
         assert_eq!(err2, "Unknown exchange error");
+    }
+
+    #[actix_web::test]
+    async fn test_api_error_responses() {
+        use httpmock::prelude::*;
+        use httpmock::MockServer;
+
+        let server = MockServer::start();
+        let mut client = match ReqwestGitHubClient::new("id".to_string(), "sec".to_string()) {
+            Ok(c) => c,
+            Err(e) => panic!("Failed to create client: {e}"),
+        };
+        client.api_base_url = server.base_url();
+
+        let token = "token";
+
+        // Mock a 500 error for each endpoint to hit the error_for_status map_err
+        // and also mock a 200 with bad JSON to hit the json map_err
+
+        server.mock(|when, then| {
+            when.method(GET).path("/user");
+            then.status(500);
+        });
+        assert!(client.get_user(token).await.is_err());
+
+        server.mock(|when, then| {
+            when.method(GET).path("/user");
+            then.status(200).body("bad json");
+        });
+        assert!(client.get_user(token).await.is_err());
+
+        server.mock(|when, then| {
+            when.method(GET).path("/user/emails");
+            then.status(500);
+        });
+        assert!(client.get_emails(token).await.is_err());
+
+        server.mock(|when, then| {
+            when.method(GET).path("/user/emails");
+            then.status(200).body("bad json");
+        });
+        assert!(client.get_emails(token).await.is_err());
+        assert!(client.get_emails(token).await.is_err());
+
+        server.mock(|when, then| {
+            when.method(GET).path("/user/orgs");
+            then.status(200).body("bad json");
+        });
+        assert!(client.list_orgs(token).await.is_err());
+
+        server.mock(|when, then| {
+            when.method(GET).path("/orgs/org/repos");
+            then.status(200).body("bad json");
+        });
+        assert!(client.list_repos(token, "org").await.is_err());
+
+        server.mock(|when, then| {
+            when.method(POST).path("/repos/owner/repo/releases");
+            then.status(200).body("bad json");
+        });
+        assert!(client
+            .create_release(token, "owner", "repo", "tag", None, None)
+            .await
+            .is_err());
+
+        server.mock(|when, then| {
+            when.method(GET)
+                .path("/repos/owner/repo/actions/secrets/public-key");
+            then.status(200).body("bad json");
+        });
+        assert!(client
+            .get_repo_public_key(token, "owner", "repo")
+            .await
+            .is_err());
+    }
+
+    #[actix_web::test]
+    async fn test_api_error_responses_2() {
+        use httpmock::prelude::*;
+        use httpmock::MockServer;
+
+        let server = MockServer::start();
+        let mut client = match ReqwestGitHubClient::new("id".to_string(), "sec".to_string()) {
+            Ok(c) => c,
+            Err(e) => panic!("Failed to create client: {e}"),
+        };
+        client.api_base_url = server.base_url();
+
+        let token = "token";
+
+        server.mock(|when, then| {
+            when.method(GET).path("/user/emails");
+            then.status(200).body("bad json");
+        });
+
+        let _ = client.get_emails(token).await;
+    }
+
+    #[actix_web::test]
+    async fn test_api_error_responses_3() {
+        use httpmock::prelude::*;
+        use httpmock::MockServer;
+
+        let server = MockServer::start();
+        let mut client = match ReqwestGitHubClient::new("id".to_string(), "sec".to_string()) {
+            Ok(c) => c,
+            Err(e) => panic!("Failed to create client: {e}"),
+        };
+        client.api_base_url = server.base_url();
+
+        let token = "token";
+
+        server.mock(|when, then| {
+            when.method(GET).path("/user");
+            then.status(200).body("bad json");
+        });
+
+        let _ = client.get_user(token).await;
     }
 }

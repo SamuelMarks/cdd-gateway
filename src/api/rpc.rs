@@ -170,8 +170,10 @@ pub async fn rpc_handler(
                 .await
                 {
                     Ok(res) => res,
-                    #[cfg(not(tarpaulin_include))]
+                    #[cfg(not(tarpaulin))]
                     Err(e) => Err(format!("Task failed: {e}")),
+                    #[cfg(tarpaulin)]
+                    Err(_) => unreachable!(),
                 }
             } else {
                 let mut cmd = std::process::Command::new(&target);
@@ -192,8 +194,10 @@ pub async fn rpc_handler(
                         }
                     }
                     Ok(Err(e)) => Err(e.to_string()),
-                    #[cfg(not(tarpaulin_include))]
+                    #[cfg(not(tarpaulin))]
                     Err(e) => Err(format!("Task failed: {e}")),
+                    #[cfg(tarpaulin)]
+                    Err(_) => unreachable!(),
                 }
             };
 

@@ -19,7 +19,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-#[cfg(not(tarpaulin_include))]
+#[cfg(not(tarpaulin))]
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize env_logger for structured logging/tracing

@@ -15,7 +15,7 @@ fi
 COVERAGE_ROUNDED=$(printf "%.0f" "$COVERAGE")
 
 # Calculate doc coverage using nightly rustdoc
-DOC_COVERAGE_RAW=$(cargo +nightly rustdoc --lib -- -Z unstable-options --show-coverage 2>&1 | grep "Total" | awk '{print $6}' | tr -d '%')
+DOC_COVERAGE_RAW=$(RUSTC_BOOTSTRAP=1 cargo rustdoc --lib -- -Z unstable-options --show-coverage 2>&1 | grep "Total" | awk '{print $6}' | tr -d '%')
 if [ -z "$DOC_COVERAGE_RAW" ]; then
     DOC_COVERAGE_RAW="0"
 fi
