@@ -43,6 +43,7 @@ async-trait = "0.1.89"
 mockall = "0.14.0"
 futures-util = "0.3.32"
 tokio-stream = "0.1.18"
+zip = "8.6.0"
 
 [dev-dependencies]
 async-trait = "0.1.89"

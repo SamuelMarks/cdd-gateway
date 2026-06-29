@@ -21,7 +21,7 @@ use std::time::Duration;
 #[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(not(tarpaulin))]
 #[actix_web::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), cdd_gateway::error::CddGatewayError> {
     // Initialize env_logger for structured logging/tracing
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 

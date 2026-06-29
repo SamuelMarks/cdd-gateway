@@ -40,10 +40,10 @@ impl RateLimiter {
     /// Check if a request is allowed
     #[must_use]
     pub fn check(&self, ip: &str) -> bool {
-        let mut reqs = self
-            .requests
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut reqs = match self.requests.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
         let now = Instant::now();
         let ip_reqs = reqs.entry(ip.to_string()).or_default();
 

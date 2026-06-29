@@ -53,21 +53,21 @@ impl AppConfig {
     pub fn load(config_path: Option<&str>) -> Result<Self, crate::error::CddGatewayError> {
         let mut builder = config::Config::builder()
             .set_default("database_url", "postgres://postgres:password@localhost/cdd")
-            .unwrap_or_else(|_| std::process::exit(1))
+            .map_err(|e| crate::error::CddGatewayError::Config(e.to_string()))?
             .set_default("server_bind", "0.0.0.0:8080")
-            .unwrap_or_else(|_| std::process::exit(1))
+            .map_err(|e| crate::error::CddGatewayError::Config(e.to_string()))?
             .set_default("jwt_secret", "super-secret-key")
-            .unwrap_or_else(|_| std::process::exit(1))
+            .map_err(|e| crate::error::CddGatewayError::Config(e.to_string()))?
             .set_default("webhook_secret", "my_webhook_secret")
-            .unwrap_or_else(|_| std::process::exit(1))
+            .map_err(|e| crate::error::CddGatewayError::Config(e.to_string()))?
             .set_default("offline_mode", false)
-            .unwrap_or_else(|_| std::process::exit(1))
+            .map_err(|e| crate::error::CddGatewayError::Config(e.to_string()))?
             .set_default("control_plane_url", "http://localhost:8081")
-            .unwrap_or_else(|_| std::process::exit(1))
+            .map_err(|e| crate::error::CddGatewayError::Config(e.to_string()))?
             .set_default("docs_ui_url", "http://localhost:8082")
-            .unwrap_or_else(|_| std::process::exit(1))
+            .map_err(|e| crate::error::CddGatewayError::Config(e.to_string()))?
             .set_default("web_ui_url", "http://localhost:8083")
-            .unwrap_or_else(|_| std::process::exit(1));
+            .map_err(|e| crate::error::CddGatewayError::Config(e.to_string()))?;
 
         if let Some(path) = config_path {
             builder = builder.add_source(config::File::with_name(path).required(false));
@@ -76,7 +76,7 @@ impl AppConfig {
         builder
             .add_source(config::Environment::with_prefix("CDD").separator("__"))
             .build()
-            .unwrap_or_else(|_| std::process::exit(1))
+            .map_err(|e| crate::error::CddGatewayError::Config(e.to_string()))?
             .try_deserialize()
             .map_err(|e| crate::error::CddGatewayError::Config(e.to_string()))
     }
