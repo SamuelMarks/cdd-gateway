@@ -28,12 +28,12 @@ jobs:
 
       - name: Create Release Archive
         run: |
-          tar -czvf cdd-gateway-linux-x86_64.tar.gz -C target/x86_64-unknown-linux-gnu/release cdd-gateway
+          tar -czvf cdd-gateway-x86_64-unknown-linux-gnu.tar.gz -C target/x86_64-unknown-linux-gnu/release cdd-gateway
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: cdd-gateway-linux-x86_64.tar.gz
+          files: cdd-gateway-x86_64-unknown-linux-gnu.tar.gz
           generate_release_notes: true
