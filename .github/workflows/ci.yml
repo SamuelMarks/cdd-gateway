@@ -52,6 +52,9 @@ jobs:
           diesel setup --database-url postgres://postgres:password@localhost/cdd
           diesel migration run --database-url postgres://postgres:password@localhost/cdd
 
+      - name: Fetch WASM artifacts
+        run: ./scripts/fetch_wasm.sh
+
       - name: Run checks
         run: cargo check --verbose
 
