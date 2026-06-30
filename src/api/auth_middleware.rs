@@ -137,9 +137,7 @@ mod tests {
     async fn test_auth_middleware_with_config() {
         let app = test::init_service(
             App::new()
-                .app_data(web::Data::new(
-                    AppConfig::load(None).unwrap_or_else(|_| panic!("expected value")),
-                ))
+                .app_data(web::Data::new(AppConfig::default()))
                 .route("/", web::get().to(dummy_handler)),
         )
         .await;

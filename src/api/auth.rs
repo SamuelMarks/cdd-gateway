@@ -230,7 +230,7 @@ mod tests {
     use actix_web::{test, App};
 
     fn test_config() -> AppConfig {
-        AppConfig::load(None).unwrap_or_else(|_| panic!("expected value"))
+        AppConfig::default()
     }
 
     #[actix_web::test]
@@ -539,7 +539,7 @@ mod tests {
             .expect_get_user()
             .returning(|_| Err("failed".to_string()));
 
-        let config = AppConfig::load(None).unwrap_or_else(|_| panic!("expected value"));
+        let config = AppConfig::default();
         let repo: Arc<dyn CddRepository> = Arc::new(mock_repo);
         let gh: Arc<dyn GitHubClient> = Arc::new(mock_gh);
 
@@ -570,7 +570,7 @@ mod tests {
             })
         });
 
-        let config = AppConfig::load(None).unwrap_or_else(|_| panic!("expected value"));
+        let config = AppConfig::default();
         let repo: Arc<dyn CddRepository> = Arc::new(mock_repo);
 
         let req = web::Json(RegisterPayload {

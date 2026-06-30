@@ -39,6 +39,23 @@ pub struct AppConfig {
     pub servers: HashMap<String, ProcessConfig>,
 }
 
+impl Default for AppConfig {
+    fn default() -> Self {
+        Self {
+            database_url: "postgres://postgres:password@localhost/cdd".to_string(),
+            server_bind: "0.0.0.0:8080".to_string(),
+            jwt_secret: "super-secret-key".to_string(),
+            webhook_secret: "my_webhook_secret".to_string(),
+            github_token: None,
+            offline_mode: false,
+            control_plane_url: "http://localhost:8081".to_string(),
+            docs_ui_url: "http://localhost:8082".to_string(),
+            web_ui_url: "http://localhost:8083".to_string(),
+            servers: HashMap::new(),
+        }
+    }
+}
+
 impl AppConfig {
     /// Load configuration from an optional file path and environment variables.
     ///
@@ -91,8 +108,11 @@ mod tests {
     static ENV_MUTEX: std::sync::LazyLock<Mutex<()>> = std::sync::LazyLock::new(|| Mutex::new(()));
 
     #[test]
-    fn test_config_env_overrides() {
-        let _lock = ENV_MUTEX.lock().unwrap_or_else(|_| std::process::exit(1));
+    fn test_config_env_overrides() -> Result<(), Box<dyn std::error::Error>> {
+        let _lock = match ENV_MUTEX.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
 
         // 1. Default config
         std::env::remove_var("CDD__JWT_SECRET");
@@ -100,7 +120,7 @@ mod tests {
         std::env::remove_var("CDD__GITHUB_TOKEN");
         std::env::remove_var("CDD__OFFLINE_MODE");
 
-        let cfg = AppConfig::load(None).unwrap_or_else(|_| std::process::exit(1));
+        let cfg = AppConfig::load(None)?;
         assert_eq!(cfg.server_bind, "0.0.0.0:8080");
         assert_eq!(
             cfg.database_url,
@@ -113,42 +133,49 @@ mod tests {
 
         // 2. JWT Secret override
         std::env::set_var("CDD__JWT_SECRET", "test-jwt-secret");
-        let cfg = AppConfig::load(None).unwrap_or_else(|_| std::process::exit(1));
+        let cfg = AppConfig::load(None)?;
         assert_eq!(cfg.jwt_secret, "test-jwt-secret");
         std::env::remove_var("CDD__JWT_SECRET");
 
         // 3. Webhook Secret override
         std::env::set_var("CDD__WEBHOOK_SECRET", "test-webhook-secret");
-        let cfg = AppConfig::load(None).unwrap_or_else(|_| std::process::exit(1));
+        let cfg = AppConfig::load(None)?;
         assert_eq!(cfg.webhook_secret, "test-webhook-secret");
         std::env::remove_var("CDD__WEBHOOK_SECRET");
 
         // 4. GitHub Token override
         std::env::set_var("CDD__GITHUB_TOKEN", "ghp_test123");
-        let cfg = AppConfig::load(None).unwrap_or_else(|_| std::process::exit(1));
+        let cfg = AppConfig::load(None)?;
         assert_eq!(cfg.github_token.as_deref(), Some("ghp_test123"));
         std::env::remove_var("CDD__GITHUB_TOKEN");
 
         // 5. Offline Mode override
         std::env::set_var("CDD__OFFLINE_MODE", "true");
-        let cfg = AppConfig::load(None).unwrap_or_else(|_| std::process::exit(1));
+        let cfg = AppConfig::load(None)?;
         assert!(cfg.offline_mode);
         std::env::remove_var("CDD__OFFLINE_MODE");
+
+        Ok(())
     }
 
     #[test]
-    fn test_config_load_with_file_path() {
+    fn test_config_load_with_file_path() -> Result<(), Box<dyn std::error::Error>> {
+        let _lock = match ENV_MUTEX.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
         // Create a temporary file with config
         use std::io::Write;
         let file_path = "test_cdd_config.toml";
-        let mut file = std::fs::File::create(file_path).unwrap_or_else(|_| std::process::exit(1));
-        writeln!(file, "server_bind = \"127.0.0.1:9090\"")
-            .unwrap_or_else(|_| std::process::exit(1));
+        let mut file = std::fs::File::create(file_path)?;
+        writeln!(file, "server_bind = \"127.0.0.1:9090\"")?;
 
-        let config = AppConfig::load(Some(file_path)).unwrap_or_else(|_| std::process::exit(1));
+        let config = AppConfig::load(Some(file_path))?;
         assert_eq!(config.server_bind, "127.0.0.1:9090");
 
-        std::fs::remove_file(file_path).unwrap_or_else(|_| panic!("remove"));
+        let _ = std::fs::remove_file(file_path);
+
+        Ok(())
     }
 
     #[test]
@@ -165,12 +192,12 @@ mod tests {
     }
 
     #[test]
-    fn test_config_derives() {
+    fn test_config_derives() -> Result<(), Box<dyn std::error::Error>> {
         let _lock = match ENV_MUTEX.lock() {
             Ok(guard) => guard,
             Err(poisoned) => poisoned.into_inner(),
         };
-        let cfg = AppConfig::load(None).unwrap_or_else(|_| std::process::exit(1));
+        let cfg = AppConfig::load(None)?;
 
         let cloned = cfg.clone();
         assert_eq!(cfg.server_bind, cloned.server_bind);
@@ -178,10 +205,12 @@ mod tests {
         let dbg = format!("{cfg:?}");
         assert!(dbg.contains("AppConfig"));
 
-        let ser = serde_json::to_string(&cfg).unwrap_or_else(|_| panic!("ser"));
+        let ser = serde_json::to_string(&cfg)?;
         assert!(ser.contains("0.0.0.0:8080"));
 
-        let de: AppConfig = serde_json::from_str(&ser).unwrap_or_else(|_| panic!("de"));
+        let de: AppConfig = serde_json::from_str(&ser)?;
         assert_eq!(de.server_bind, "0.0.0.0:8080");
+
+        Ok(())
     }
 }
