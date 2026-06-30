@@ -160,12 +160,12 @@ mod tests {
 
     #[test]
     fn test_config_load_with_file_path() -> Result<(), Box<dyn std::error::Error>> {
+        use std::io::Write;
         let _lock = match ENV_MUTEX.lock() {
             Ok(guard) => guard,
             Err(poisoned) => poisoned.into_inner(),
         };
         // Create a temporary file with config
-        use std::io::Write;
         let file_path = "test_cdd_config.toml";
         let mut file = std::fs::File::create(file_path)?;
         writeln!(file, "server_bind = \"127.0.0.1:9090\"")?;
@@ -212,5 +212,18 @@ mod tests {
         assert_eq!(de.server_bind, "0.0.0.0:8080");
 
         Ok(())
+    }
+
+    #[test]
+    fn test_default() {
+        let cfg = AppConfig::default();
+        assert_eq!(cfg.server_bind, "0.0.0.0:8080");
+        assert_eq!(
+            cfg.database_url,
+            "postgres://postgres:password@localhost/cdd"
+        );
+        assert_eq!(cfg.jwt_secret, "super-secret-key");
+        assert_eq!(cfg.webhook_secret, "my_webhook_secret");
+        assert_eq!(cfg.offline_mode, false);
     }
 }
