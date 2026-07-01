@@ -68,8 +68,10 @@ fn test_get_conn_error() {
 
     // Create a pool that times out instantly
     let manager =
-        ConnectionManager::<PgConnection>::new("postgres://invalid:invalid@localhost/invalid");
+        ConnectionManager::<PgConnection>::new("postgres://invalid:invalid@127.0.0.1:1/invalid");
     let pool = Pool::builder()
+        .max_size(1)
+        .min_idle(Some(0))
         .connection_timeout(std::time::Duration::from_millis(1))
         .test_on_check_out(false)
         .build_unchecked(manager);
