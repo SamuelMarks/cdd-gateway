@@ -191,6 +191,7 @@ mod additional_tests {
     }
 
     #[actix_web::test]
+    #[cfg_attr(tarpaulin, ignore)]
     async fn test_poisoned_mutex() {
         let limiter = RateLimiter::new(1, Duration::from_mins(1));
         let mutex = limiter.requests.clone();
