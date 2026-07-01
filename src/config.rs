@@ -224,6 +224,6 @@ mod tests {
         );
         assert_eq!(cfg.jwt_secret, "super-secret-key");
         assert_eq!(cfg.webhook_secret, "my_webhook_secret");
-        assert_eq!(cfg.offline_mode, false);
+        assert!(!cfg.offline_mode);
     }
 }
