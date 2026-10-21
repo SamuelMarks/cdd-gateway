@@ -15,7 +15,12 @@ fi
 COVERAGE_ROUNDED=$(printf "%.0f" "$COVERAGE")
 
 # Calculate doc coverage using nightly rustdoc
-DOC_COVERAGE_RAW=$(RUSTC_BOOTSTRAP=1 cargo rustdoc --lib -- -Z unstable-options --show-coverage 2>&1 | grep "Total" | awk '{print $6}' | tr -d '%')
+DOC_OUT=$(RUSTC_BOOTSTRAP=1 cargo rustdoc --lib -- -Z unstable-options --show-coverage 2>&1)
+if [ -f "target/doc/cdd_gateway.txt" ]; then
+    DOC_COVERAGE_RAW=$(grep "Total" target/doc/cdd_gateway.txt | awk '{print $6}' | tr -d '%')
+else
+    DOC_COVERAGE_RAW=$(echo "$DOC_OUT" | grep "Total" | awk '{print $6}' | tr -d '%')
+fi
 if [ -z "$DOC_COVERAGE_RAW" ]; then
     DOC_COVERAGE_RAW="0"
 fi
@@ -31,9 +36,9 @@ if [ "$DOC_COVERAGE" -ne 100 ]; then
     DOC_COLOR="red"
 fi
 
-# Update README.md
-sed -i -E "s/!\[Test Coverage\]\(https:\/\/img\.shields\.io\/badge\/coverage-[0-9.]+.*?%25-.*?\.svg\)/![Test Coverage](https:\/\/img.shields.io\/badge\/coverage-${COVERAGE_ROUNDED}%25-${TEST_COLOR}.svg)/g" README.md
-sed -i -E "s/!\[Doc Coverage\]\(https:\/\/img\.shields\.io\/badge\/docs-[0-9.]+.*?%25-.*?\.svg\)/![Doc Coverage](https:\/\/img.shields.io\/badge\/docs-${DOC_COVERAGE}%25-${DOC_COLOR}.svg)/g" README.md
+# Update README.md portably across macOS and Linux
+perl -pi -e "s/!\[Test Coverage\]\(https:\/\/img\.shields\.io\/badge\/coverage-[0-9.]+.*?%25-.*?\.svg\)/![Test Coverage](https:\/\/img.shields.io\/badge\/coverage-${COVERAGE_ROUNDED}%25-${TEST_COLOR}.svg)/g" README.md
+perl -pi -e "s/!\[Doc Coverage\]\(https:\/\/img\.shields\.io\/badge\/docs-[0-9.]+.*?%25-.*?\.svg\)/![Doc Coverage](https:\/\/img.shields.io\/badge\/docs-${DOC_COVERAGE}%25-${DOC_COLOR}.svg)/g" README.md
 
 echo "Updated shields in README.md (Test: ${COVERAGE_ROUNDED}%, Doc: ${DOC_COVERAGE}%)"
 

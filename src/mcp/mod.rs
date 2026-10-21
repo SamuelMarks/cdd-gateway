@@ -1,47 +1,63 @@
-#![deny(missing_docs)]
-//! Server-Sent Events (SSE) transport for Model Context Protocol.
+#![deny(missing_docs, clippy::missing_docs_in_private_items)]
+//! Server-Sent Events (SSE) and JSON-RPC message transport for the Model Context Protocol (MCP).
 
 use crate::error::CddGatewayError;
 use actix_web::{web, HttpResponse, Responder};
 use cdd_engine::mcp::{McpOrchestrator, McpRequest};
-use log::info;
 use std::sync::Arc;
 use tokio::sync::mpsc;
+use tokio_stream::wrappers::ReceiverStream;
 
-/// Initialize the SSE stream for a new MCP client.
+/// Initiates an MCP Server-Sent Events (SSE) session (`GET /mcp/sse`).
+///
+/// Emits the `endpoint` discovery event pointing clients to `/mcp/message`.
+///
+/// # Returns
+/// * `impl Responder` - `200 OK` `text/event-stream` response yielding the initial MCP endpoint event.
+#[allow(clippy::unused_async)]
 pub async fn mcp_sse_handshake() -> impl Responder {
-    let (tx, rx) = mpsc::channel::<Result<actix_web::web::Bytes, actix_web::Error>>(10);
+    let (tx, rx) = mpsc::channel(10);
 
-    // According to MCP spec, the server should send an initial endpoint event
-    let init_msg = "event: endpoint\ndata: /mcp/message\n\n".to_string();
-    let _ = tx.try_send(Ok(actix_web::web::Bytes::from(init_msg)));
+    let init_event = "event: endpoint
+data: /mcp/message
 
-    // Return the streaming response
+";
+    let _ = tx.try_send(Ok::<_, actix_web::Error>(web::Bytes::from(init_event)));
+
+    let stream = ReceiverStream::new(rx);
+
     HttpResponse::Ok()
         .insert_header(("Content-Type", "text/event-stream"))
         .insert_header(("Cache-Control", "no-cache"))
         .insert_header(("Connection", "keep-alive"))
-        .streaming(tokio_stream::wrappers::ReceiverStream::new(rx))
+        .streaming(stream)
 }
 
-/// Handle incoming POST messages on the MCP transport.
+/// Processes an incoming MCP JSON-RPC message (`POST /mcp/message`).
+///
+/// Delegates execution to the configured [`McpOrchestrator`].
+///
+/// # Arguments
+/// * `req` - Deserialized [`McpRequest`] JSON payload.
+/// * `orchestrator` - Shared [`McpOrchestrator`] engine handle.
+///
+/// # Returns
+/// * `Ok(HttpResponse)` - `200 OK` JSON response containing the orchestrator's [`cdd_engine::mcp::McpResponse`].
+///
 /// # Errors
-/// error
+/// * [`CddGatewayError::Engine`] - If the [`McpOrchestrator`] returns an execution error.
 pub async fn mcp_message_handler(
-    engine: web::Data<Arc<dyn McpOrchestrator>>,
     req: web::Json<McpRequest>,
-) -> Result<impl Responder, CddGatewayError> {
-    info!("Received MCP Request: {} for {}", req.jsonrpc, req.method);
-
-    let response = engine
-        .handle_request(req.into_inner())
-        .await
-        .map_err(CddGatewayError::Engine)?;
-
+    orchestrator: web::Data<Arc<dyn McpOrchestrator>>,
+) -> Result<HttpResponse, CddGatewayError> {
+    let response = orchestrator.handle_request(req.into_inner()).await?;
     Ok(HttpResponse::Ok().json(response))
 }
 
-/// Configure the MCP routes in Actix.
+/// Registers the `/mcp` scope routes (`/mcp/sse` and `/mcp/message`) on `cfg`.
+///
+/// # Arguments
+/// * `cfg` - Actix-web service configuration builder.
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/mcp")
@@ -53,100 +69,68 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use actix_web::{test, web, App};
+    use actix_web::{test, App};
     use async_trait::async_trait;
+    use cdd_engine::error::CddEngineError;
     use cdd_engine::mcp::McpResponse;
     use serde_json::json;
 
-    struct MockEngine;
+    struct DummyOrchestrator;
 
     #[async_trait]
-    impl McpOrchestrator for MockEngine {
-        async fn handle_request(
-            &self,
-            req: McpRequest,
-        ) -> Result<McpResponse, cdd_engine::error::CddEngineError> {
+    impl McpOrchestrator for DummyOrchestrator {
+        async fn handle_request(&self, req: McpRequest) -> Result<McpResponse, CddEngineError> {
             if req.method == "error" {
-                return Err(cdd_engine::error::CddEngineError::Internal(
-                    "test error".to_string(),
-                ));
+                Err(CddEngineError::Internal("Simulated error".into()))
+            } else {
+                Ok(McpResponse {
+                    jsonrpc: "2.0".to_string(),
+                    id: req.id,
+                    result: Some(json!({"echo": req.method})),
+                    error: None,
+                })
             }
-            Ok(McpResponse {
-                jsonrpc: "2.0".to_string(),
-                id: req.id,
-                result: Some(json!({"status": "ok"})),
-                error: None,
-            })
         }
     }
 
     #[actix_web::test]
-    async fn test_mcp_sse_handshake() -> Result<(), Box<dyn std::error::Error>> {
-        let req = test::TestRequest::default().to_http_request();
-        let resp = mcp_sse_handshake().await.respond_to(&req);
-        assert_eq!(resp.status(), actix_web::http::StatusCode::OK);
-        if let Some(content_type) = resp.headers().get("Content-Type") {
-            assert_eq!(content_type, "text/event-stream");
-        } else {
-            panic!("Content-Type missing");
-        }
-        Ok(())
-    }
-
-    #[actix_web::test]
-    async fn test_mcp_message_handler() -> Result<(), Box<dyn std::error::Error>> {
-        let engine: Arc<dyn McpOrchestrator> = Arc::new(MockEngine);
-        let req_data = serde_json::from_value(json!({
-            "jsonrpc": "2.0",
-            "id": "1",
-            "method": "test"
-        }))?;
-        let req = web::Json(req_data);
-
-        let resp = mcp_message_handler(web::Data::new(engine), req).await?;
-        let http_req = test::TestRequest::default().to_http_request();
-        assert_eq!(
-            resp.respond_to(&http_req).status(),
-            actix_web::http::StatusCode::OK
-        );
-        Ok(())
-    }
-
-    #[actix_web::test]
-    async fn test_mcp_message_handler_error() -> Result<(), Box<dyn std::error::Error>> {
-        let engine: Arc<dyn McpOrchestrator> = Arc::new(MockEngine);
-        let req_data = serde_json::from_value(json!({
-            "jsonrpc": "2.0",
-            "id": "2",
-            "method": "error"
-        }))?;
-        let req = web::Json(req_data);
-
-        let result = mcp_message_handler(web::Data::new(engine), req).await;
-        assert!(result.is_err());
-        Ok(())
-    }
-
-    #[actix_web::test]
-    async fn test_configure() {
-        let engine: Arc<dyn McpOrchestrator> = Arc::new(MockEngine);
-        let app = test::init_service(
-            App::new()
-                .app_data(web::Data::new(engine.clone()))
-                .configure(configure),
-        )
-        .await;
-
+    async fn test_mcp_sse_handshake() {
+        let app = test::init_service(App::new().configure(configure)).await;
         let req = test::TestRequest::get().uri("/mcp/sse").to_request();
         let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_success());
+        assert_eq!(
+            resp.headers()
+                .get("Content-Type")
+                .and_then(|v| v.to_str().ok()),
+            Some("text/event-stream")
+        );
+        let body = test::read_body(resp).await;
+        assert_eq!(
+            body,
+            "event: endpoint
+data: /mcp/message
+
+"
+        );
+    }
+
+    #[actix_web::test]
+    async fn test_mcp_message_handler() {
+        let orchestrator: Arc<dyn McpOrchestrator> = Arc::new(DummyOrchestrator);
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(orchestrator))
+                .configure(configure),
+        )
+        .await;
 
         let req = test::TestRequest::post()
             .uri("/mcp/message")
             .set_json(json!({
                 "jsonrpc": "2.0",
                 "id": "1",
-                "method": "test"
+                "method": "ping"
             }))
             .to_request();
         let resp = test::call_service(&app, req).await;

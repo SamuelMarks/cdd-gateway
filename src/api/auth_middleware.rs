@@ -1,30 +1,35 @@
+#![deny(missing_docs, clippy::missing_docs_in_private_items)]
+//! Bearer JWT authentication extractor middleware for Actix-web handlers.
+
 use crate::config::AppConfig;
+use crate::error::CddGatewayError;
 use actix_web::{dev::Payload, FromRequest, HttpRequest};
 use actix_web_httpauth::extractors::bearer::BearerAuth;
 use futures_util::future::{ready, Ready};
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
 
-/// Claims stored inside a JWT issued by this service.
+/// Claims stored inside a signed JWT issued by `cdd-gateway`.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
-    /// Subject — the numeric user ID.
+    /// Subject — the numeric user primary key ID.
     pub sub: i32,
-    /// Expiration time (Unix timestamp).
+    /// Expiration time (Unix timestamp in seconds).
     pub exp: usize,
-    /// The authenticated user's username.
+    /// The authenticated user's login username.
     pub username: String,
 }
 
 /// Actix-web extractor that validates a Bearer JWT and yields the caller's identity.
 ///
-/// The JWT secret is read from [`AppConfig`] registered as Actix app data.  When
-/// no `AppConfig` is present (e.g. in unit tests that do not register it) the
-/// extractor falls back to the compile-time default `"super-secret-key"`.
+/// The JWT secret is read from [`AppConfig`] registered as Actix `web::Data<AppConfig>`.
+/// When no `AppConfig` is present in unit tests, the extractor falls back to the
+/// development secret `"super-secret-key"`.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AuthenticatedUser {
     /// The authenticated user's database ID.
     pub user_id: i32,
-    /// The authenticated user's username.
+    /// The authenticated user's login username.
     pub username: String,
 }
 
@@ -32,9 +37,15 @@ impl FromRequest for AuthenticatedUser {
     type Error = actix_web::Error;
     type Future = Ready<Result<Self, Self::Error>>;
 
+    /// Extracts and verifies the `Authorization: Bearer <token>` header from an [`HttpRequest`].
+    ///
+    /// # Arguments
+    /// * `req` - Incoming HTTP request containing headers and application state.
+    /// * `payload` - Request payload stream.
+    ///
+    /// # Returns
+    /// * `Ready<Result<AuthenticatedUser, actix_web::Error>>` - Resolved caller identity or 401 error.
     fn from_request(req: &HttpRequest, payload: &mut Payload) -> Self::Future {
-        // Read the JWT secret from AppConfig stored in app data, falling back to
-        // the compile-time default so that tests without AppConfig still work.
         let secret: Vec<u8> = req
             .app_data::<actix_web::web::Data<AppConfig>>()
             .map_or_else(
@@ -44,8 +55,14 @@ impl FromRequest for AuthenticatedUser {
 
         let auth = BearerAuth::from_request(req, payload).into_inner();
 
-        match auth {
-            Ok(bearer) => {
+        auth.map_or_else(
+            |_| {
+                ready(Err(CddGatewayError::Unauthorized(
+                    "Missing or invalid Authorization header".to_string(),
+                )
+                .into()))
+            },
+            |bearer| {
                 let token = bearer.token();
                 match decode::<Claims>(
                     token,
@@ -56,30 +73,28 @@ impl FromRequest for AuthenticatedUser {
                         user_id: token_data.claims.sub,
                         username: token_data.claims.username,
                     })),
-                    Err(_) => ready(Err(actix_web::error::ErrorUnauthorized("Invalid token"))),
+                    Err(e) => ready(Err(CddGatewayError::Jwt(e).into())),
                 }
-            }
-            Err(e) => ready(Err(e.into())),
-        }
+            },
+        )
     }
 }
 
 #[cfg(test)]
-/// Generate a test JWT token signed with the default secret key.
+/// Generates a test JWT token signed with the default secret key (`"super-secret-key"`).
 ///
-/// Used by test helpers across the codebase to produce a valid Bearer token
-/// without needing a running server.
+/// # Returns
+/// * `String` - Signed JWT token valid for 1 hour for `user_id = 1` (`"testuser"`).
 #[must_use]
-/// # Panics
-/// Panics on encode failure
 pub fn generate_test_token() -> String {
     use jsonwebtoken::{encode, EncodingKey, Header};
+    let now_secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
     let claims = Claims {
         sub: 1,
-        exp: (chrono::Utc::now() + chrono::Duration::hours(1))
-            .timestamp()
-            .try_into()
-            .unwrap_or(0),
+        exp: usize::try_from(now_secs.saturating_add(3_600)).unwrap_or(0),
         username: "testuser".to_string(),
     };
     encode(
@@ -87,7 +102,7 @@ pub fn generate_test_token() -> String {
         &claims,
         &EncodingKey::from_secret(b"super-secret-key"),
     )
-    .unwrap_or_else(|_| panic!("expected value"))
+    .unwrap_or_default()
 }
 
 #[cfg(test)]

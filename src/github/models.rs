@@ -1,80 +1,73 @@
+#![deny(missing_docs, clippy::missing_docs_in_private_items)]
+//! Data transfer models for GitHub REST API and OAuth responses.
+
 use serde::{Deserialize, Serialize};
 
-/// `GitHubUser` structure
-#[derive(Debug, Deserialize, Serialize, Clone)]
+/// Represents an authenticated GitHub user profile returned by `GET /user`.
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
 pub struct GitHubUser {
-    /// id field
+    /// Unique numeric GitHub user ID.
     pub id: i64,
-    /// login field
+    /// GitHub account login handle (username).
     pub login: String,
-    /// `avatar_url` field
+    /// URL pointing to the user's profile avatar image.
     pub avatar_url: String,
 }
 
-/// `GitHubEmail` structure
-#[derive(Debug, Deserialize, Serialize, Clone)]
+/// Represents a user email entry returned by `GET /user/emails`.
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
 pub struct GitHubEmail {
-    /// email field
+    /// Email address string.
     pub email: String,
-    /// primary field
+    /// Whether this address is the user's primary GitHub email.
     pub primary: bool,
-    /// verified field
+    /// Whether this email address has been verified by GitHub.
     pub verified: bool,
 }
 
-/// `GitHubOrg` structure
-#[derive(Debug, Deserialize, Serialize, Clone)]
+/// Represents a GitHub organization returned by `GET /user/orgs`.
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
 pub struct GitHubOrg {
-    /// id field
+    /// Unique numeric GitHub organization ID.
     pub id: i64,
-    /// login field
+    /// Organization login handle.
     pub login: String,
-    /// description field
+    /// Optional human-readable description of the organization.
     pub description: Option<String>,
 }
 
-/// `GitHubRepo` structure
-#[derive(Debug, Deserialize, Serialize, Clone)]
+/// Represents a GitHub repository returned by `GET /orgs/{org}/repos`.
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
 pub struct GitHubRepo {
-    /// id field
+    /// Unique numeric GitHub repository ID.
     pub id: i64,
-    /// name field
+    /// Short repository name.
     pub name: String,
-    /// `full_name` field
+    /// Full `owner/name` repository identifier.
     pub full_name: String,
-    /// description field
+    /// Optional human-readable description of the repository.
     pub description: Option<String>,
 }
 
-/// `GitHubRelease` structure
-#[derive(Debug, Deserialize, Serialize, Clone)]
+/// Represents a GitHub release returned by `POST /repos/{owner}/{repo}/releases`.
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
 pub struct GitHubRelease {
-    /// id field
+    /// Unique numeric GitHub release ID.
     pub id: i64,
-    /// `tag_name` field
+    /// Git tag name associated with the release.
     pub tag_name: String,
-    /// name field
+    /// Optional release title.
     pub name: Option<String>,
-    /// body field
+    /// Optional release notes markdown body.
     pub body: Option<String>,
 }
 
-/// `GitHubPublicKey` structure
-#[derive(Debug, Deserialize, Serialize, Clone)]
+/// Represents a repository Libsodium public key returned by
+/// `GET /repos/{owner}/{repo}/actions/secrets/public-key`.
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
 pub struct GitHubPublicKey {
-    /// `key_id` field
+    /// Identifier of the public key used when uploading encrypted secrets.
     pub key_id: String,
-    /// key field
+    /// Base64-encoded public key value.
     pub key: String,
-}
-
-/// `AccessTokenResponse` structure
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct AccessTokenResponse {
-    /// `access_token` field
-    pub access_token: String,
-    /// `token_type` field
-    pub token_type: String,
-    /// scope field
-    pub scope: String,
 }

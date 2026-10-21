@@ -5,53 +5,35 @@ edition = "2021"
 
 [dependencies]
 cdd-engine = { git = "https://github.com/SamuelMarks/cdd-engine" }
-actix-web = "4"
-actix-cors = "0.7"
-actix-identity = "0.8"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-utoipa = { version = "5.3.1", features = ["actix_extras", "uuid", "chrono"] }
-utoipa-swagger-ui = { version = "9.0", features = ["actix-web"] }
-diesel = { version = "2.2", features = ["postgres", "r2d2", "chrono", "uuid"] }
-diesel_migrations = { version = "2.3.2", features = ["postgres"] }
-dotenvy = "0.15"
-
-# Removed "full". Added only required Tokio features
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time", "sync"] }
-
-# Disabled default native-tls to prevent compiling OpenSSL alongside Rustls
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream", "charset", "http2"] }
-
-oauth2 = "4.4"
-chrono = "0.4"
-uuid = { version = "1.10", features = ["v4", "serde"] }
-log = "0.4"
-env_logger = "0.11"
-
-# Removed "full" feature, only using specific error derives
-derive_more = { version = "1.0", default-features = false, features = ["display", "from", "error"] }
-
-clap = { version = "4.5.60", features = ["derive"] }
-config = "0.15.19"
-jsonwebtoken = { version = "10.3.0", features = ["rust_crypto"] }
-actix-web-httpauth = "0.8.2"
-argon2 = { version = "0.5.3", features = ["std", "password-hash"] }
-hmac = "0.12.1"
-sha2 = "0.10.9"
-hex = "0.4.3"
-async-trait = "0.1.89"
-mockall = "0.14.0"
-futures-util = "0.3.32"
-tokio-stream = "0.1.18"
-zip = "8.6.0"
+actix-web = { version = "4.17", default-features = false, features = ["macros"] }
+actix-cors = { version = "0.7", default-features = false }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+serde_json = { version = "1.0", default-features = false, features = ["std"] }
+utoipa = { version = "6.0", default-features = false, features = ["macros"] }
+utoipa-swagger-ui = { version = "10.0", default-features = false, features = ["actix-web", "vendored"] }
+diesel = { version = "2.3", default-features = false, features = ["postgres", "r2d2"] }
+tokio = { version = "1.54", default-features = false, features = ["macros", "rt-multi-thread", "sync"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
+log = { version = "0.4", default-features = false }
+env_logger = { version = "0.11", default-features = false }
+derive_more = { version = "2.1", default-features = false, features = ["display", "from", "error"] }
+config = { version = "0.15", default-features = false, features = ["toml"] }
+jsonwebtoken = { version = "11.1", default-features = false, features = ["rust_crypto"] }
+actix-web-httpauth = { version = "0.8", default-features = false }
+argon2 = { version = "0.6", default-features = false, features = ["alloc", "getrandom", "password-hash"] }
+hmac = { version = "0.13", default-features = false }
+sha2 = { version = "0.11", default-features = false }
+hex = { version = "0.4", default-features = false, features = ["alloc"] }
+async-trait = { version = "0.1", default-features = false }
+futures-util = { version = "0.3", default-features = false, features = ["alloc"] }
+tokio-stream = { version = "0.1", default-features = false }
+zip = { version = "9.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 
 [dev-dependencies]
-async-trait = "0.1.89"
-httpmock = "0.8.3"
-mockall = "0.14.0"
-tokio = { version = "1", features = ["test-util"] }
-# Moved rand to dev-dependencies since it's only used in db/tests/
-rand = { version = "0.10.0", features = ["std"] }
+diesel_migrations = { version = "2.3", default-features = false }
+httpmock = { version = "0.9", default-features = false }
+mockall = { version = "0.15", default-features = false }
+uuid = { version = "1.28", default-features = false, features = ["v4"] }
 
 [lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = ['cfg(tarpaulin_include)'] }
