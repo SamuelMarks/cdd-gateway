@@ -2,12 +2,13 @@
 //! Integration tests for repository release creation and GitHub ID upserts.
 
 use crate::db::repository::CddRepository;
-use crate::db::tests::{setup_test_db, TestError};
+use crate::db::tests::setup_test_db;
+use crate::error::CddGatewayError;
 use uuid::Uuid;
 
-/// Verifies creating a release and upserting a release by its GitHub ID.
+/// Verifies creating a release and inserting/updating a release keyed by its GitHub ID.
 #[tokio::test]
-async fn test_create_and_upsert_release() -> Result<(), TestError> {
+async fn test_create_and_upsert_release() -> Result<(), CddGatewayError> {
     let repo = setup_test_db()?;
 
     let login = format!("org_{}", Uuid::new_v4());
@@ -18,7 +19,7 @@ async fn test_create_and_upsert_release() -> Result<(), TestError> {
         .create_repository(org.id, None, repo_name, None)
         .await?;
 
-    let tag_name = format!("v1.0.0-{}", Uuid::new_v4());
+    let tag_name = format!("v1.0.{}", Uuid::new_v4());
     let release1 = repo
         .create_release(
             created_repo.id,
@@ -29,25 +30,13 @@ async fn test_create_and_upsert_release() -> Result<(), TestError> {
         )
         .await?;
     assert_eq!(release1.tag_name, tag_name);
+    assert_eq!(release1.repository_id, created_repo.id);
 
-    let github_id = i64::try_from(
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_nanos()
-            % 1_000_000_000,
-    )
-    .unwrap_or(0)
-        + 4_000_000;
-    let tag_name2 = format!("v2.0.0-{}", Uuid::new_v4());
-
+    let github_id =
+        i64::try_from(Uuid::new_v4().as_u128() % 1_000_000_000).unwrap_or(0) + 4_000_000;
+    let tag_name2 = format!("v2.0.{}", Uuid::new_v4());
     let release2 = repo
-        .upsert_release(
-            created_repo.id,
-            github_id,
-            tag_name2.clone(),
-            Some("Release 2".to_string()),
-            None,
-        )
+        .upsert_release(created_repo.id, github_id, tag_name2.clone(), None, None)
         .await?;
     assert_eq!(release2.github_id, Some(github_id));
     assert_eq!(release2.tag_name, tag_name2);

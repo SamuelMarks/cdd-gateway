@@ -2,12 +2,13 @@
 //! Integration tests for repository CRUD, GitHub ID upserts, and connection pool errors.
 
 use crate::db::repository::CddRepository;
-use crate::db::tests::{setup_test_db, TestError};
+use crate::db::tests::setup_test_db;
+use crate::error::CddGatewayError;
 use uuid::Uuid;
 
 /// Verifies creating a repository and retrieving it by its primary key ID.
 #[tokio::test]
-async fn test_create_and_get_repository() -> Result<(), TestError> {
+async fn test_create_and_get_repository() -> Result<(), CddGatewayError> {
     let repo = setup_test_db()?;
 
     let login = format!("org_{}", Uuid::new_v4());
@@ -28,7 +29,7 @@ async fn test_create_and_get_repository() -> Result<(), TestError> {
     let found_repo = repo
         .get_repository(created_repo.id)
         .await?
-        .ok_or(TestError::NoneError)?;
+        .ok_or_else(|| CddGatewayError::NotFound("repo not found".to_string()))?;
     assert_eq!(found_repo.id, created_repo.id);
     assert_eq!(found_repo.name, repo_name);
     Ok(())
@@ -36,20 +37,14 @@ async fn test_create_and_get_repository() -> Result<(), TestError> {
 
 /// Verifies inserting and updating a repository keyed by its GitHub ID.
 #[tokio::test]
-async fn test_upsert_repository() -> Result<(), TestError> {
+async fn test_upsert_repository() -> Result<(), CddGatewayError> {
     let repo = setup_test_db()?;
 
     let login = format!("org_{}", Uuid::new_v4());
     let org = repo.create_organization(None, login, None).await?;
 
-    let github_id = i64::try_from(
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_nanos()
-            % 1_000_000_000,
-    )
-    .unwrap_or(0)
-        + 3_000_000;
+    let github_id =
+        i64::try_from(Uuid::new_v4().as_u128() % 1_000_000_000).unwrap_or(0) + 3_000_000;
     let repo_name = format!("repo_{}", Uuid::new_v4());
 
     let repo1 = repo
@@ -81,9 +76,11 @@ async fn test_pg_repository_get_conn_error() {
     use diesel::pg::PgConnection;
     use diesel::r2d2::{ConnectionManager, Pool};
 
-    let manager = ConnectionManager::<PgConnection>::new("postgres://invalid:5432/db");
+    let manager =
+        ConnectionManager::<PgConnection>::new("postgres://invalid:invalid@127.0.0.1:1/invalid");
     let pool = Pool::builder()
         .max_size(1)
+        .min_idle(Some(0))
         .connection_timeout(std::time::Duration::from_millis(1))
         .test_on_check_out(false)
         .build_unchecked(manager);

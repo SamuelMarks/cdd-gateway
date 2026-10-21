@@ -410,6 +410,17 @@ mod tests {
             .expect_upsert_organization()
             .times(1)
             .returning(|_, _, _| Err(CddGatewayError::Database(diesel::result::Error::NotFound)));
+        mock_repo
+            .expect_upsert_organization()
+            .times(1)
+            .returning(|_, _, _| {
+                Ok(Organization {
+                    id: 3,
+                    github_id: Some(12),
+                    login: "org3".into(),
+                    description: None,
+                })
+            });
 
         mock_repo
             .expect_upsert_repository()
@@ -443,9 +454,14 @@ mod tests {
                     login: "org2".into(),
                     description: None,
                 },
+                GitHubOrg {
+                    id: 12,
+                    login: "org3".into(),
+                    description: None,
+                },
             ])
         });
-        mock_gh.expect_list_repos().returning(|_, _| {
+        mock_gh.expect_list_repos().times(1).returning(|_, _| {
             Ok(vec![
                 GitHubRepo {
                     id: 20,
@@ -461,6 +477,10 @@ mod tests {
                 },
             ])
         });
+        mock_gh
+            .expect_list_repos()
+            .times(1)
+            .returning(|_, _| Err(CddGatewayError::Internal("list_repos failed".into())));
 
         let app = test::init_service(
             App::new()

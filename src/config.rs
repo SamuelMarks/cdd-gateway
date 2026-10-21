@@ -191,10 +191,9 @@ mod tests {
 
     #[test]
     fn test_config_env_overrides() -> Result<(), Box<dyn std::error::Error>> {
-        let _lock = match ENV_MUTEX.lock() {
-            Ok(guard) => guard,
-            Err(poisoned) => poisoned.into_inner(),
-        };
+        let _lock = ENV_MUTEX
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
 
         std::env::remove_var("CDD__JWT_SECRET");
         std::env::remove_var("CDD__WEBHOOK_SECRET");
@@ -245,10 +244,9 @@ mod tests {
     #[test]
     fn test_config_load_with_file_path() -> Result<(), Box<dyn std::error::Error>> {
         use std::io::Write;
-        let _lock = match ENV_MUTEX.lock() {
-            Ok(guard) => guard,
-            Err(poisoned) => poisoned.into_inner(),
-        };
+        let _lock = ENV_MUTEX
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let file_path = std::env::temp_dir().join(format!("cdd_cfg_{}.toml", uuid::Uuid::new_v4()));
         let mut file = std::fs::File::create(&file_path)?;
         writeln!(file, r#"server_bind = "127.0.0.1:9090""#)?;
@@ -264,10 +262,9 @@ mod tests {
 
     #[test]
     fn test_config_load_deserialize_error() {
-        let _lock = match ENV_MUTEX.lock() {
-            Ok(guard) => guard,
-            Err(poisoned) => poisoned.into_inner(),
-        };
+        let _lock = ENV_MUTEX
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         std::env::set_var("CDD__OFFLINE_MODE", "not_a_bool");
         let result = AppConfig::load(None);
         assert!(result.is_err());
@@ -276,10 +273,9 @@ mod tests {
 
     #[test]
     fn test_config_derives() -> Result<(), Box<dyn std::error::Error>> {
-        let _lock = match ENV_MUTEX.lock() {
-            Ok(guard) => guard,
-            Err(poisoned) => poisoned.into_inner(),
-        };
+        let _lock = ENV_MUTEX
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let cfg = AppConfig::load(None)?;
 
         let cloned = cfg.clone();

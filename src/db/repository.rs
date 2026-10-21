@@ -657,18 +657,18 @@ impl CddRepository for OfflineRepository {
         &self,
         username: String,
     ) -> Result<Option<User>, CddGatewayError> {
-        let guard = match self.store.lock() {
-            Ok(g) => g,
-            Err(p) => p.into_inner(),
-        };
+        let guard = self
+            .store
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         Ok(guard.users.iter().find(|u| u.username == username).cloned())
     }
 
     async fn find_user_by_id(&self, id: i32) -> Result<Option<User>, CddGatewayError> {
-        let guard = match self.store.lock() {
-            Ok(g) => g,
-            Err(p) => p.into_inner(),
-        };
+        let guard = self
+            .store
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         Ok(guard.users.iter().find(|u| u.id == id).cloned())
     }
 
@@ -679,10 +679,10 @@ impl CddRepository for OfflineRepository {
         email: String,
         password_hash: Option<String>,
     ) -> Result<User, CddGatewayError> {
-        let mut guard = match self.store.lock() {
-            Ok(g) => g,
-            Err(p) => p.into_inner(),
-        };
+        let mut guard = self
+            .store
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let next_id = i32::try_from(guard.users.len()).unwrap_or(0) + 1;
         let user = User {
             id: next_id,
@@ -702,10 +702,10 @@ impl CddRepository for OfflineRepository {
         username: String,
         email: String,
     ) -> Result<User, CddGatewayError> {
-        let mut guard = match self.store.lock() {
-            Ok(g) => g,
-            Err(p) => p.into_inner(),
-        };
+        let mut guard = self
+            .store
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if let Some(existing) = guard
             .users
             .iter_mut()
@@ -734,10 +734,10 @@ impl CddRepository for OfflineRepository {
         login: String,
         description: Option<String>,
     ) -> Result<Organization, CddGatewayError> {
-        let mut guard = match self.store.lock() {
-            Ok(g) => g,
-            Err(p) => p.into_inner(),
-        };
+        let mut guard = self
+            .store
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let next_id = i32::try_from(guard.organizations.len()).unwrap_or(0) + 1;
         let org = Organization {
             id: next_id,
@@ -756,10 +756,10 @@ impl CddRepository for OfflineRepository {
         login: String,
         description: Option<String>,
     ) -> Result<Organization, CddGatewayError> {
-        let mut guard = match self.store.lock() {
-            Ok(g) => g,
-            Err(p) => p.into_inner(),
-        };
+        let mut guard = self
+            .store
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if let Some(existing) = guard
             .organizations
             .iter_mut()
@@ -782,10 +782,10 @@ impl CddRepository for OfflineRepository {
     }
 
     async fn get_organization(&self, org_id: i32) -> Result<Option<Organization>, CddGatewayError> {
-        let guard = match self.store.lock() {
-            Ok(g) => g,
-            Err(p) => p.into_inner(),
-        };
+        let guard = self
+            .store
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         Ok(guard.organizations.iter().find(|o| o.id == org_id).cloned())
     }
 
@@ -795,10 +795,10 @@ impl CddRepository for OfflineRepository {
         user_id: i32,
         role: String,
     ) -> Result<OrganizationUser, CddGatewayError> {
-        let mut guard = match self.store.lock() {
-            Ok(g) => g,
-            Err(p) => p.into_inner(),
-        };
+        let mut guard = self
+            .store
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if let Some(existing) = guard
             .organization_users
             .iter_mut()
@@ -822,10 +822,10 @@ impl CddRepository for OfflineRepository {
         org_id: i32,
         user_id: i32,
     ) -> Result<Option<String>, CddGatewayError> {
-        let guard = match self.store.lock() {
-            Ok(g) => g,
-            Err(p) => p.into_inner(),
-        };
+        let guard = self
+            .store
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         Ok(guard
             .organization_users
             .iter()
@@ -840,10 +840,10 @@ impl CddRepository for OfflineRepository {
         name: String,
         description: Option<String>,
     ) -> Result<Repository, CddGatewayError> {
-        let mut guard = match self.store.lock() {
-            Ok(g) => g,
-            Err(p) => p.into_inner(),
-        };
+        let mut guard = self
+            .store
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let next_id = i32::try_from(guard.repositories.len()).unwrap_or(0) + 1;
         let repo = Repository {
             id: next_id,
@@ -864,10 +864,10 @@ impl CddRepository for OfflineRepository {
         name: String,
         description: Option<String>,
     ) -> Result<Repository, CddGatewayError> {
-        let mut guard = match self.store.lock() {
-            Ok(g) => g,
-            Err(p) => p.into_inner(),
-        };
+        let mut guard = self
+            .store
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if let Some(existing) = guard
             .repositories
             .iter_mut()
@@ -892,10 +892,10 @@ impl CddRepository for OfflineRepository {
     }
 
     async fn get_repository(&self, repo_id: i32) -> Result<Option<Repository>, CddGatewayError> {
-        let guard = match self.store.lock() {
-            Ok(g) => g,
-            Err(p) => p.into_inner(),
-        };
+        let guard = self
+            .store
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         Ok(guard.repositories.iter().find(|r| r.id == repo_id).cloned())
     }
 
@@ -907,10 +907,10 @@ impl CddRepository for OfflineRepository {
         name: Option<String>,
         body: Option<String>,
     ) -> Result<Release, CddGatewayError> {
-        let mut guard = match self.store.lock() {
-            Ok(g) => g,
-            Err(p) => p.into_inner(),
-        };
+        let mut guard = self
+            .store
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let next_id = i32::try_from(guard.releases.len()).unwrap_or(0) + 1;
         let release = Release {
             id: next_id,
@@ -933,10 +933,10 @@ impl CddRepository for OfflineRepository {
         name: Option<String>,
         body: Option<String>,
     ) -> Result<Release, CddGatewayError> {
-        let mut guard = match self.store.lock() {
-            Ok(g) => g,
-            Err(p) => p.into_inner(),
-        };
+        let mut guard = self
+            .store
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if let Some(existing) = guard
             .releases
             .iter_mut()

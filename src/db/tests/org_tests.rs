@@ -2,42 +2,38 @@
 //! Integration tests for organization CRUD, upserts, and user role memberships.
 
 use crate::db::repository::CddRepository;
-use crate::db::tests::{setup_test_db, TestError};
+use crate::db::tests::setup_test_db;
+use crate::error::CddGatewayError;
 use uuid::Uuid;
 
 /// Verifies creating an organization and retrieving it by ID.
 #[tokio::test]
-async fn test_create_and_get_org() -> Result<(), TestError> {
+async fn test_create_and_get_org() -> Result<(), CddGatewayError> {
     let repo = setup_test_db()?;
+
     let login = format!("org_{}", Uuid::new_v4());
-
-    let created = repo
-        .create_organization(None, login.clone(), Some("Test Org".to_string()))
+    let org = repo
+        .create_organization(None, login.clone(), Some("Desc".to_string()))
         .await?;
-    assert_eq!(created.login, login);
-    assert_eq!(created.description, Some("Test Org".to_string()));
+    assert_eq!(org.login, login);
+    assert_eq!(org.description, Some("Desc".to_string()));
 
-    let found = repo
-        .get_organization(created.id)
+    let found_org = repo
+        .get_organization(org.id)
         .await?
-        .ok_or(TestError::NoneError)?;
-    assert_eq!(found.id, created.id);
-    assert_eq!(found.login, login);
+        .ok_or_else(|| CddGatewayError::NotFound("org not found".to_string()))?;
+    assert_eq!(found_org.id, org.id);
+    assert_eq!(found_org.login, login);
     Ok(())
 }
 
-/// Verifies inserting and updating an organization keyed by its GitHub ID.
+/// Verifies inserting and updating an organization by its GitHub ID.
 #[tokio::test]
-async fn test_upsert_org() -> Result<(), TestError> {
+async fn test_upsert_org() -> Result<(), CddGatewayError> {
     let repo = setup_test_db()?;
-    let github_id = i64::try_from(
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_nanos()
-            % 1_000_000_000,
-    )
-    .unwrap_or(0)
-        + 2_000_000;
+
+    let github_id =
+        i64::try_from(Uuid::new_v4().as_u128() % 1_000_000_000).unwrap_or(0) + 2_000_000;
     let login = format!("org_{}", Uuid::new_v4());
 
     let org1 = repo
@@ -60,9 +56,9 @@ async fn test_upsert_org() -> Result<(), TestError> {
     Ok(())
 }
 
-/// Verifies adding a user to an organization and updating their role.
+/// Verifies adding a user to an organization, querying their role, and updating the role.
 #[tokio::test]
-async fn test_org_user_roles() -> Result<(), TestError> {
+async fn test_org_user_roles() -> Result<(), CddGatewayError> {
     let repo = setup_test_db()?;
 
     let username = format!("user_{}", Uuid::new_v4());
@@ -72,16 +68,19 @@ async fn test_org_user_roles() -> Result<(), TestError> {
     let login = format!("org_{}", Uuid::new_v4());
     let org = repo.create_organization(None, login, None).await?;
 
+    let role_none = repo.get_user_role(org.id, user.id).await?;
+    assert!(role_none.is_none());
+
     let link = repo
         .add_user_to_organization(org.id, user.id, "owner".to_string())
         .await?;
     assert_eq!(link.role, "owner");
 
-    let role = repo
+    let role_some = repo
         .get_user_role(org.id, user.id)
         .await?
-        .ok_or(TestError::NoneError)?;
-    assert_eq!(role, "owner");
+        .ok_or_else(|| CddGatewayError::NotFound("role not found".to_string()))?;
+    assert_eq!(role_some, "owner");
 
     let link_update = repo
         .add_user_to_organization(org.id, user.id, "member".to_string())
@@ -91,7 +90,7 @@ async fn test_org_user_roles() -> Result<(), TestError> {
     let role_update = repo
         .get_user_role(org.id, user.id)
         .await?
-        .ok_or(TestError::NoneError)?;
+        .ok_or_else(|| CddGatewayError::NotFound("role not found".to_string()))?;
     assert_eq!(role_update, "member");
     Ok(())
 }

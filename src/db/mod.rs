@@ -47,12 +47,11 @@ mod connection_tests {
     #[test]
     fn test_establish_connection_pool_invalid_url() {
         let result = establish_connection_pool("invalid_url");
-        assert!(result.is_err());
-        if let Err(err) = result {
-            assert_eq!(
-                actix_web::ResponseError::status_code(&err),
-                actix_web::http::StatusCode::INTERNAL_SERVER_ERROR
-            );
-        }
+        assert_eq!(
+            result
+                .err()
+                .map(|e| actix_web::ResponseError::status_code(&e)),
+            Some(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR)
+        );
     }
 }

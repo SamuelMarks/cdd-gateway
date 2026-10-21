@@ -77,9 +77,7 @@ pub async fn proxy_handler(
 
     for (header_name, header_value) in req.headers() {
         if !is_hop_by_hop_header(header_name.as_str()) {
-            if let Ok(val) = header_value.to_str() {
-                proxy_req = proxy_req.header(header_name.as_str(), val);
-            }
+            proxy_req = proxy_req.header(header_name.as_str(), header_value.as_bytes());
         }
     }
 
@@ -97,9 +95,7 @@ pub async fn proxy_handler(
 
     for (header_name, header_value) in res.headers() {
         if !is_hop_by_hop_header(header_name.as_str()) {
-            if let Ok(val) = header_value.to_str() {
-                response_builder.insert_header((header_name.as_str(), val));
-            }
+            response_builder.insert_header((header_name.as_str(), header_value.as_bytes()));
         }
     }
 

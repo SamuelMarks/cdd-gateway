@@ -168,26 +168,26 @@ mod tests {
                 .status_code(),
             StatusCode::BAD_REQUEST
         );
-        if let Err(e) = serde_json::from_str::<serde_json::Value>("invalid") {
-            assert_eq!(
-                CddGatewayError::Json(e).status_code(),
-                StatusCode::BAD_REQUEST
-            );
-        }
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>("invalid")
+                .err()
+                .map(|e| CddGatewayError::Json(e).status_code()),
+            Some(StatusCode::BAD_REQUEST)
+        );
         assert_eq!(
             CddGatewayError::Unauthorized("unauth".to_string()).status_code(),
             StatusCode::UNAUTHORIZED
         );
-        if let Err(e) = jsonwebtoken::decode::<serde_json::Value>(
-            "bad.jwt.token",
-            &jsonwebtoken::DecodingKey::from_secret(b"secret"),
-            &jsonwebtoken::Validation::default(),
-        ) {
-            assert_eq!(
-                CddGatewayError::Jwt(e).status_code(),
-                StatusCode::UNAUTHORIZED
-            );
-        }
+        assert_eq!(
+            jsonwebtoken::decode::<serde_json::Value>(
+                "bad.jwt.token",
+                &jsonwebtoken::DecodingKey::from_secret(b"secret"),
+                &jsonwebtoken::Validation::default(),
+            )
+            .err()
+            .map(|e| CddGatewayError::Jwt(e).status_code()),
+            Some(StatusCode::UNAUTHORIZED)
+        );
         assert_eq!(
             CddGatewayError::Forbidden("denied".to_string()).status_code(),
             StatusCode::FORBIDDEN

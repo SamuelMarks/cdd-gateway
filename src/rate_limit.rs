@@ -62,10 +62,10 @@ impl RateLimiter {
         let window = self.window;
         let max_requests = self.max_requests;
 
-        let mut reqs = match self.requests.lock() {
-            Ok(guard) => guard,
-            Err(poisoned) => poisoned.into_inner(),
-        };
+        let mut reqs = self
+            .requests
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
 
         reqs.retain(|_, timestamps| {
             timestamps.retain(|&t| now.duration_since(t) < window);
@@ -90,11 +90,10 @@ impl RateLimiter {
     /// * `usize` - Number of active IP keys with non-expired timestamps.
     #[must_use]
     pub fn active_ip_count(&self) -> usize {
-        let reqs = match self.requests.lock() {
-            Ok(guard) => guard,
-            Err(poisoned) => poisoned.into_inner(),
-        };
-        reqs.len()
+        self.requests
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .len()
     }
 }
 
@@ -223,6 +222,7 @@ mod tests {
     }
 
     #[actix_web::test]
+    #[cfg_attr(tarpaulin, ignore)]
     async fn test_rate_limiter_poisoned_mutex_recovery() {
         let limiter = RateLimiter::new(2, Duration::from_secs(60));
         let limiter_clone = limiter.clone();

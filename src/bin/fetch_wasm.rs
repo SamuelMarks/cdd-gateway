@@ -156,9 +156,7 @@ async fn fetch_all_wasm(
     }
 
     let json = serde_json::to_string_pretty(&support_map)?;
-    if let Some(parent) = support_file.parent() {
-        fs::create_dir_all(parent)?;
-    }
+    let _ = support_file.parent().map(fs::create_dir_all);
     fs::write(support_file, json)?;
     println!("Updated {}", support_file.display());
 
@@ -271,10 +269,8 @@ fn extract_zip(zip_path: &Path, extract_to: &Path) -> Result<(), CddGatewayError
         if file.is_dir() {
             fs::create_dir_all(&outpath)?;
         } else {
-            if let Some(p) = outpath.parent() {
-                if !p.exists() {
-                    fs::create_dir_all(p)?;
-                }
+            if let Some(p) = outpath.parent().filter(|p| !p.exists()) {
+                fs::create_dir_all(p)?;
             }
             let mut outfile = File::create(&outpath)?;
             io::copy(&mut file, &mut outfile)?;
@@ -426,6 +422,35 @@ mod tests {
         .await;
         assert!(res5.is_none());
         m_head_wasm_404.delete();
+
+        // 6. Invalid JSON on 200 OK API response + unreachable fallback URLs
+        let mut m_bad_json = server.mock(|when, then| {
+            when.method(GET).path("/repos/offscale/bad/releases/latest");
+            then.status(200).body("not-json");
+        });
+        let res6 = get_github_release_url(
+            &client,
+            "offscale/bad",
+            wasm_file,
+            zip_file,
+            &server.base_url(),
+            "http://127.0.0.1:1",
+        )
+        .await;
+        assert!(res6.is_none());
+        m_bad_json.delete();
+
+        // 7. Unreachable API URL
+        let res7 = get_github_release_url(
+            &client,
+            repo,
+            wasm_file,
+            zip_file,
+            "http://127.0.0.1:1",
+            "http://127.0.0.1:1",
+        )
+        .await;
+        assert!(res7.is_none());
     }
 
     #[tokio::test]

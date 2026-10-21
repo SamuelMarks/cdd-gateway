@@ -98,7 +98,7 @@ impl RpcResponse {
 }
 
 /// Typed parameters for the `to_docs_json` JSON-RPC method.
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Deserialize)]
 pub struct ToDocsJsonParams {
     /// Target language identifier (e.g., `"rust"`, `"python-all"`, `"cdd-go"`).
     pub target_language: String,
@@ -113,21 +113,21 @@ pub struct ToDocsJsonParams {
 }
 
 /// Typed parameters for the `get_organization` JSON-RPC method.
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Deserialize)]
 struct GetOrgParams {
     /// Numeric organization ID to look up.
     org_id: i32,
 }
 
 /// Typed parameters for the `get_repository` JSON-RPC method.
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Deserialize)]
 struct GetRepoParams {
     /// Numeric repository ID to look up.
     repo_id: i32,
 }
 
 /// Typed parameters for the `get_user_role` JSON-RPC method.
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Deserialize)]
 struct GetUserRoleParams {
     /// Numeric organization ID.
     org_id: i32,
@@ -136,7 +136,7 @@ struct GetUserRoleParams {
 }
 
 /// Typed parameters for the `create_organization` JSON-RPC method.
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Deserialize)]
 struct CreateOrgParams {
     /// Unique organization handle.
     login: String,
@@ -147,7 +147,7 @@ struct CreateOrgParams {
 }
 
 /// Typed parameters for the `create_repository` JSON-RPC method.
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Deserialize)]
 struct CreateRepoParams {
     /// Owning organization ID.
     org_id: i32,
@@ -234,7 +234,7 @@ pub trait DocsJsonExecutor: Send + Sync {
 }
 
 /// Default [`DocsJsonExecutor`] implementation supporting both WASM and native CLI execution.
-#[derive(Default, Clone)]
+#[derive(Default)]
 pub struct DefaultDocsJsonExecutor {
     /// Optional directory prefix where native `cdd-*` binaries reside (used in tests).
     pub bin_dir: Option<std::path::PathBuf>,
@@ -297,16 +297,16 @@ impl DocsJsonExecutor for DefaultDocsJsonExecutor {
     }
 }
 
-/// Serializes any [`Serialize`] value into a [`RpcResponse`] without panicking.
+/// Converts a `serde_json::to_value` result into a [`RpcResponse`] without panicking.
 ///
 /// # Arguments
 /// * `id` - Echoed JSON-RPC request ID.
-/// * `val` - Value to serialize as the `result` field.
+/// * `res` - Result of serializing the response payload into a JSON [`Value`].
 ///
 /// # Returns
 /// * [`HttpResponse`] - `200 OK` JSON response containing the serialized result or error.
-fn ok_rpc_json<T: Serialize>(id: Option<Value>, val: &T) -> HttpResponse {
-    match serde_json::to_value(val) {
+fn ok_rpc_json(id: Option<Value>, res: Result<Value, serde_json::Error>) -> HttpResponse {
+    match res {
         Ok(v) => HttpResponse::Ok().json(RpcResponse::success(id, v)),
         Err(e) => HttpResponse::InternalServerError().json(RpcResponse::error(
             id,
@@ -365,7 +365,7 @@ pub async fn rpc_handler(
                 gateway: env!("CARGO_PKG_VERSION").to_string(),
                 ecosystem,
             };
-            ok_rpc_json(id, &v)
+            ok_rpc_json(id, serde_json::to_value(&v))
         }
         "to_docs_json" => {
             let params_val = req.params.clone().unwrap_or(Value::Null);
@@ -392,11 +392,11 @@ pub async fn rpc_handler(
                 .as_ref()
                 .map_or(ExecutionMode::Native, |c| c.execution_mode);
 
-            let default_exec: Arc<dyn DocsJsonExecutor> =
-                Arc::new(DefaultDocsJsonExecutor::default());
-            let exec_ref: &dyn DocsJsonExecutor = executor
-                .as_ref()
-                .map_or_else(|| default_exec.as_ref(), |d| d.get_ref().as_ref());
+            let default_exec = DefaultDocsJsonExecutor::default();
+            let exec_ref: &dyn DocsJsonExecutor = match &executor {
+                Some(d) => d.get_ref().as_ref(),
+                None => &default_exec,
+            };
 
             match exec_ref.execute(&target, &params, mode).await {
                 Ok(val) => HttpResponse::Ok().json(RpcResponse::success(id, val)),
@@ -413,7 +413,7 @@ pub async fn rpc_handler(
                 ));
             };
             match repo.get_organization(params.org_id).await {
-                Ok(Some(org)) => ok_rpc_json(id, &org),
+                Ok(Some(org)) => ok_rpc_json(id, serde_json::to_value(&org)),
                 Ok(None) => HttpResponse::Ok().json(RpcResponse::error(
                     id,
                     404,
@@ -436,7 +436,7 @@ pub async fn rpc_handler(
                 ));
             };
             match repo.get_repository(params.repo_id).await {
-                Ok(Some(r)) => ok_rpc_json(id, &r),
+                Ok(Some(r)) => ok_rpc_json(id, serde_json::to_value(&r)),
                 Ok(None) => HttpResponse::Ok().json(RpcResponse::error(
                     id,
                     404,
@@ -487,7 +487,7 @@ pub async fn rpc_handler(
                 .create_organization(params.github_id, params.login, params.description)
                 .await
             {
-                Ok(org) => ok_rpc_json(id, &org),
+                Ok(org) => ok_rpc_json(id, serde_json::to_value(&org)),
                 Err(e) => HttpResponse::InternalServerError().json(RpcResponse::error(
                     id,
                     500,
@@ -514,7 +514,7 @@ pub async fn rpc_handler(
                 )
                 .await
             {
-                Ok(r) => ok_rpc_json(id, &r),
+                Ok(r) => ok_rpc_json(id, serde_json::to_value(&r)),
                 Err(e) => HttpResponse::InternalServerError().json(RpcResponse::error(
                     id,
                     500,
@@ -575,7 +575,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_ok_rpc_json_serialization_error() {
-        let resp = ok_rpc_json(Some(json!(1)), &FailingSerialize);
+        let resp = ok_rpc_json(Some(json!(1)), serde_json::to_value(&FailingSerialize));
         assert_eq!(
             resp.status(),
             actix_web::http::StatusCode::INTERNAL_SERVER_ERROR
@@ -647,7 +647,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_rpc_to_docs_json_branches() {
-        let mut mock_exec = MockDocsJsonExecutor::new();
+        let mut mock_exec = MockDocsJsonExecutor::default();
         mock_exec
             .expect_execute()
             .times(1)
@@ -743,6 +743,31 @@ mod tests {
             .to_request();
         let resp_err: RpcResponse = test::call_and_read_body_json(&app, req_err).await;
         assert_eq!(resp_err.error.map(|e| e.code), Some(500));
+
+        // 5. Default executor fallback when no executor web::Data is registered
+        let app_no_exec = test::init_service(
+            App::new()
+                .app_data(web::Data::new(
+                    Arc::new(MockCddRepository::new()) as Arc<dyn CddRepository>
+                ))
+                .configure(configure),
+        )
+        .await;
+        let req_default_exec = test::TestRequest::post()
+            .uri("/rpc")
+            .set_json(RpcRequest {
+                jsonrpc: "2.0".into(),
+                method: "to_docs_json".into(),
+                params: Some(json!({
+                    "target_language": "cdd-swift",
+                    "input": "/nonexistent/spec.json"
+                })),
+                id: Some(json!(5)),
+            })
+            .to_request();
+        let resp_default_exec: RpcResponse =
+            test::call_and_read_body_json(&app_no_exec, req_default_exec).await;
+        assert_eq!(resp_default_exec.error.map(|e| e.code), Some(500));
     }
 
     #[actix_web::test]
@@ -779,7 +804,7 @@ exit 1"
             std::fs::set_permissions(&bin_fail, std::fs::Permissions::from_mode(0o755))?;
         }
 
-        // 3. Invalid JSON stdout binary
+        // 3. Invalid JSON stdout binary (with no_imports/no_wrapping = false)
         let bin_bad_json = temp_dir.join("cdd-c");
         {
             let mut f = std::fs::File::create(&bin_bad_json)?;
@@ -802,6 +827,12 @@ echo 'not-json'"
             no_imports: true,
             no_wrapping: true,
         };
+        let params_no_flags = ToDocsJsonParams {
+            target_language: "rust".into(),
+            input: "Cargo.toml".into(),
+            no_imports: false,
+            no_wrapping: false,
+        };
 
         let res_ok = exec
             .execute("cdd-rust", &params, ExecutionMode::Native)
@@ -814,7 +845,7 @@ echo 'not-json'"
             .is_err());
 
         assert!(exec
-            .execute("cdd-c", &params, ExecutionMode::Native)
+            .execute("cdd-c", &params_no_flags, ExecutionMode::Native)
             .await
             .is_err());
 
@@ -840,6 +871,16 @@ echo 'not-json'"
         };
         assert!(default_exec
             .execute("cdd-rust", &bad_wasm_params, ExecutionMode::Wasm)
+            .await
+            .is_err());
+        let bad_wasm_no_flags = ToDocsJsonParams {
+            target_language: "rust".into(),
+            input: "/nonexistent/spec.json".into(),
+            no_imports: false,
+            no_wrapping: false,
+        };
+        assert!(default_exec
+            .execute("cdd-rust", &bad_wasm_no_flags, ExecutionMode::Wasm)
             .await
             .is_err());
 
