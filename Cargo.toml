@@ -2,6 +2,7 @@
 name = "cdd-gateway"
 version = "0.0.1"
 edition = "2021"
+default-run = "cdd-gateway"
 
 [dependencies]
 cdd-engine = { git = "https://github.com/SamuelMarks/cdd-engine" }

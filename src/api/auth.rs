@@ -196,9 +196,13 @@ pub async fn login_password(
     repo: web::Data<Arc<dyn CddRepository>>,
     cfg: web::Data<AppConfig>,
 ) -> Result<HttpResponse, CddGatewayError> {
-    let user = repo
-        .find_user_by_username(payload.username.clone())
-        .await?
+    let mut found_user = repo.find_user_by_username(payload.username.clone()).await?;
+    if found_user.is_none() {
+        if let Some((prefix, _)) = payload.username.split_once('@') {
+            found_user = repo.find_user_by_username(prefix.to_string()).await?;
+        }
+    }
+    let user = found_user
         .ok_or_else(|| CddGatewayError::Unauthorized("Invalid credentials".to_string()))?;
 
     let pw = payload
@@ -423,7 +427,7 @@ mod tests {
         let mut mock_repo = MockCddRepository::new();
         mock_repo
             .expect_find_user_by_username()
-            .withf(|u| u == "notfound")
+            .withf(|u| u == "notfound" || u == "test@example.com")
             .returning(|_| Ok(None));
         mock_repo
             .expect_find_user_by_username()
@@ -532,6 +536,17 @@ mod tests {
             .to_request();
         let resp6: AuthResponse = test::call_and_read_body_json(&app, req6).await;
         assert_ne!(resp6.token, "");
+
+        // 7. Correct password with email-formatted username fallback
+        let req7 = test::TestRequest::post()
+            .uri("/auth/login")
+            .set_json(LoginPayload {
+                username: "test@example.com".to_string(),
+                password: Some("pwd".to_string()),
+            })
+            .to_request();
+        let resp7: AuthResponse = test::call_and_read_body_json(&app, req7).await;
+        assert_ne!(resp7.token, "");
 
         Ok(())
     }
