@@ -16,7 +16,10 @@ COVERAGE_ROUNDED=$(printf "%.0f" "$COVERAGE")
 
 # Calculate doc coverage using nightly rustdoc
 DOC_OUT=$(RUSTC_BOOTSTRAP=1 cargo rustdoc --lib -- -Z unstable-options --show-coverage 2>&1)
-if [ -f "target/doc/cdd_gateway.txt" ]; then
+DOC_TXT_PATH=$(echo "$DOC_OUT" | sed -n 's/^Generated output into "\(.*\)"$/\1/p' | tail -n 1)
+if [ -n "$DOC_TXT_PATH" ] && [ -f "$DOC_TXT_PATH" ]; then
+    DOC_COVERAGE_RAW=$(grep "Total" "$DOC_TXT_PATH" | awk '{print $6}' | tr -d '%')
+elif [ -f "target/doc/cdd_gateway.txt" ]; then
     DOC_COVERAGE_RAW=$(grep "Total" target/doc/cdd_gateway.txt | awk '{print $6}' | tr -d '%')
 else
     DOC_COVERAGE_RAW=$(echo "$DOC_OUT" | grep "Total" | awk '{print $6}' | tr -d '%')

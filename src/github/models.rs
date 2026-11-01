@@ -2,9 +2,10 @@
 //! Data transfer models for GitHub REST API and OAuth responses.
 
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 /// Represents an authenticated GitHub user profile returned by `GET /user`.
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq, ToSchema)]
 pub struct GitHubUser {
     /// Unique numeric GitHub user ID.
     pub id: i64,
@@ -15,7 +16,7 @@ pub struct GitHubUser {
 }
 
 /// Represents a user email entry returned by `GET /user/emails`.
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq, ToSchema)]
 pub struct GitHubEmail {
     /// Email address string.
     pub email: String,
@@ -26,7 +27,7 @@ pub struct GitHubEmail {
 }
 
 /// Represents a GitHub organization returned by `GET /user/orgs`.
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq, ToSchema)]
 pub struct GitHubOrg {
     /// Unique numeric GitHub organization ID.
     pub id: i64,
@@ -36,8 +37,8 @@ pub struct GitHubOrg {
     pub description: Option<String>,
 }
 
-/// Represents a GitHub repository returned by `GET /orgs/{org}/repos`.
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
+/// Represents a GitHub repository returned by the GitHub REST API.
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq, ToSchema)]
 pub struct GitHubRepo {
     /// Unique numeric GitHub repository ID.
     pub id: i64,
@@ -50,7 +51,7 @@ pub struct GitHubRepo {
 }
 
 /// Represents a GitHub release returned by `POST /repos/{owner}/{repo}/releases`.
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq, ToSchema)]
 pub struct GitHubRelease {
     /// Unique numeric GitHub release ID.
     pub id: i64,
@@ -64,7 +65,7 @@ pub struct GitHubRelease {
 
 /// Represents a repository Libsodium public key returned by
 /// `GET /repos/{owner}/{repo}/actions/secrets/public-key`.
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq, ToSchema)]
 pub struct GitHubPublicKey {
     /// Identifier of the public key used when uploading encrypted secrets.
     pub key_id: String,

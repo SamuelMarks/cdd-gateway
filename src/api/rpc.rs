@@ -98,11 +98,11 @@ impl RpcResponse {
 }
 
 /// Typed parameters for the `to_docs_json` JSON-RPC method.
-#[derive(Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
 pub struct ToDocsJsonParams {
     /// Target language identifier (e.g., `"rust"`, `"python-all"`, `"cdd-go"`).
     pub target_language: String,
-    /// Path to the `OpenAPI` specification file to compile into documentation JSON.
+    /// Path to the input specification file (`OpenAPI`, `Swagger`, `Arazzo`, or `Google Discovery`).
     pub input: String,
     /// Whether to omit imports in generated code snippets.
     #[serde(default)]
@@ -110,6 +110,95 @@ pub struct ToDocsJsonParams {
     /// Whether to omit wrapping boilerplate in generated code snippets.
     #[serde(default)]
     pub no_wrapping: bool,
+    /// Optional input specification format (`"openapi"`, `"swagger"`, `"arazzo"`, `"google_discovery"`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spec_format: Option<String>,
+    /// Optional generator subcommand target (`"to_docs_json"`, `"to_sdk"`, `"to_sdk_cli"`, `"to_server"`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target: Option<String>,
+    /// Optional flag enabling Model Context Protocol (`--mcp`) generation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mcp: Option<bool>,
+    /// Optional framework name (`--framework <name>`, e.g. `"angular"`, `"actix"`, `"fastapi"`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub framework: Option<String>,
+    /// Optional ORM name (`--orm <name>`, e.g. `"diesel"`, `"sqlalchemy"`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub orm: Option<String>,
+}
+
+/// Canonical list of allowed input specification formats.
+const ALLOWED_SPEC_FORMATS: &[&str] = &["openapi", "swagger", "arazzo", "google_discovery"];
+
+/// Canonical list of allowed generator subcommand targets.
+const ALLOWED_GENERATOR_TARGETS: &[&str] = &["to_docs_json", "to_sdk", "to_sdk_cli", "to_server"];
+
+/// Validates the optional `spec_format` and `target` fields on [`ToDocsJsonParams`].
+///
+/// # Arguments
+/// * `params` - The parsed [`ToDocsJsonParams`] to validate.
+///
+/// # Returns
+/// * `Ok(())` - If all optional format and target fields are valid.
+///
+/// # Errors
+/// * [`CddGatewayError::Validation`] - If `spec_format` or `target` is outside the allowlist.
+pub fn validate_docs_json_params(params: &ToDocsJsonParams) -> Result<(), CddGatewayError> {
+    if let Some(fmt) = &params.spec_format {
+        if !ALLOWED_SPEC_FORMATS.contains(&fmt.as_str()) {
+            return Err(CddGatewayError::Validation(format!(
+                "Unsupported spec_format: {fmt}"
+            )));
+        }
+    }
+    if let Some(tgt) = &params.target {
+        if !ALLOWED_GENERATOR_TARGETS.contains(&tgt.as_str()) {
+            return Err(CddGatewayError::Validation(format!(
+                "Unsupported generator target: {tgt}"
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// Builds the CLI arguments vector forwarded to `WasmExecutor` or native `cdd-*` subprocesses.
+///
+/// # Arguments
+/// * `params` - Validated [`ToDocsJsonParams`] instance.
+/// * `include_input_flag` - Whether to append `-i <input>` (used for native subprocesses).
+///
+/// # Returns
+/// * `Vec<String>` - Ordered CLI arguments starting with the subcommand (`to_docs_json` by default).
+#[must_use]
+pub fn build_compiler_args(params: &ToDocsJsonParams, include_input_flag: bool) -> Vec<String> {
+    let subcommand = params.target.as_deref().unwrap_or("to_docs_json");
+    let mut args = vec![subcommand.to_string()];
+    if include_input_flag {
+        args.push("-i".to_string());
+        args.push(params.input.clone());
+    }
+    if params.no_imports {
+        args.push("--no-imports".to_string());
+    }
+    if params.no_wrapping {
+        args.push("--no-wrapping".to_string());
+    }
+    if let Some(fmt) = &params.spec_format {
+        args.push("--spec-format".to_string());
+        args.push(fmt.clone());
+    }
+    if params.mcp == Some(true) {
+        args.push("--mcp".to_string());
+    }
+    if let Some(fw) = &params.framework {
+        args.push("--framework".to_string());
+        args.push(fw.clone());
+    }
+    if let Some(orm) = &params.orm {
+        args.push("--orm".to_string());
+        args.push(orm.clone());
+    }
+    args
 }
 
 /// Typed parameters for the `get_organization` JSON-RPC method.
@@ -252,13 +341,7 @@ impl DocsJsonExecutor for DefaultDocsJsonExecutor {
             && !matches!(target, "cdd-java" | "cdd-kotlin" | "cdd-ruby" | "cdd-swift");
 
         let stdout = if wasm_supported {
-            let mut args = vec!["to_docs_json".to_string()];
-            if params.no_imports {
-                args.push("--no-imports".to_string());
-            }
-            if params.no_wrapping {
-                args.push("--no-wrapping".to_string());
-            }
+            let args = build_compiler_args(params, false);
             WASM_EXECUTOR
                 .execute_to_stdout(target, &params.input, &args)
                 .map_err(|e| CddGatewayError::Internal(format!("WASM execution failed: {e}")))?
@@ -267,14 +350,9 @@ impl DocsJsonExecutor for DefaultDocsJsonExecutor {
                 .bin_dir
                 .as_ref()
                 .map_or_else(|| std::path::PathBuf::from(target), |dir| dir.join(target));
+            let args = build_compiler_args(params, true);
             let mut cmd = std::process::Command::new(&program);
-            cmd.arg("to_docs_json").arg("-i").arg(&params.input);
-            if params.no_imports {
-                cmd.arg("--no-imports");
-            }
-            if params.no_wrapping {
-                cmd.arg("--no-wrapping");
-            }
+            cmd.args(&args);
 
             let output = cmd.output().map_err(|e| {
                 CddGatewayError::Internal(format!("Failed to execute {target}: {e}"))
@@ -359,7 +437,7 @@ pub async fn rpc_handler(
         "version" => {
             let mut ecosystem = HashMap::new();
             for tool in ALLOWED_TARGETS {
-                ecosystem.insert((*tool).to_string(), "0.0.1".to_string());
+                ecosystem.insert((*tool).to_string(), env!("CARGO_PKG_VERSION").to_string());
             }
             let v = VersionResponse {
                 gateway: env!("CARGO_PKG_VERSION").to_string(),
@@ -376,6 +454,14 @@ pub async fn rpc_handler(
                     "Invalid params: 'target_language' and 'input' are required".to_string(),
                 ));
             };
+
+            if let Err(e) = validate_docs_json_params(&params) {
+                return HttpResponse::BadRequest().json(RpcResponse::error(
+                    id,
+                    -32602,
+                    e.to_string(),
+                ));
+            }
 
             let target = match resolve_target_binary(&params.target_language) {
                 Ok(t) => t,
@@ -558,7 +644,7 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_resolve_target_binary() {
+    async fn test_resolve_target_binary_and_compiler_args() -> Result<(), CddGatewayError> {
         assert_eq!(
             resolve_target_binary("rust").ok(),
             Some("cdd-rust".to_string())
@@ -568,9 +654,47 @@ mod tests {
             Some("cdd-go".to_string())
         );
         assert!(resolve_target_binary("").is_err());
+        assert!(resolve_target_binary("..").is_err());
         assert!(resolve_target_binary("../bin/sh").is_err());
         assert!(resolve_target_binary("cdd-dir/mock").is_err());
         assert!(resolve_target_binary("cdd-unknown").is_err());
+
+        for fmt in &["openapi", "swagger", "arazzo", "google_discovery"] {
+            for tgt in &["to_docs_json", "to_sdk", "to_sdk_cli", "to_server"] {
+                let p = ToDocsJsonParams {
+                    target_language: "rust".into(),
+                    input: "spec.json".into(),
+                    no_imports: true,
+                    no_wrapping: true,
+                    spec_format: Some((*fmt).to_string()),
+                    target: Some((*tgt).to_string()),
+                    mcp: Some(true),
+                    framework: Some("actix".into()),
+                    orm: Some("diesel".into()),
+                };
+                validate_docs_json_params(&p)?;
+                let args = build_compiler_args(&p, true);
+                assert_eq!(args[0], *tgt);
+                assert!(args.contains(&"--spec-format".to_string()));
+                assert!(args.contains(&"--mcp".to_string()));
+                assert!(args.contains(&"--framework".to_string()));
+                assert!(args.contains(&"--orm".to_string()));
+            }
+        }
+
+        let bad_fmt = ToDocsJsonParams {
+            spec_format: Some("wsdl".into()),
+            ..Default::default()
+        };
+        assert!(validate_docs_json_params(&bad_fmt).is_err());
+
+        let bad_tgt = ToDocsJsonParams {
+            target: Some("rm_rf".into()),
+            ..Default::default()
+        };
+        assert!(validate_docs_json_params(&bad_tgt).is_err());
+
+        Ok(())
     }
 
     #[actix_web::test]
@@ -654,6 +778,11 @@ mod tests {
             .returning(|target, params, mode| {
                 assert_eq!(target, "cdd-rust");
                 assert_eq!(params.input, "spec.json");
+                assert_eq!(params.spec_format.as_deref(), Some("openapi"));
+                assert_eq!(params.target.as_deref(), Some("to_sdk_cli"));
+                assert_eq!(params.mcp, Some(true));
+                assert_eq!(params.framework.as_deref(), Some("actix"));
+                assert_eq!(params.orm.as_deref(), Some("diesel"));
                 assert_eq!(mode, ExecutionMode::Wasm);
                 Ok(json!({ "docs": "ok" }))
             });
@@ -693,6 +822,23 @@ mod tests {
         let resp_missing: RpcResponse = test::call_and_read_body_json(&app, req_missing).await;
         assert_eq!(resp_missing.error.map(|e| e.code), Some(-32602));
 
+        // 1b. Invalid spec_format
+        let req_bad_fmt = test::TestRequest::post()
+            .uri("/rpc")
+            .set_json(RpcRequest {
+                jsonrpc: "2.0".into(),
+                method: "to_docs_json".into(),
+                params: Some(json!({
+                    "target_language": "rust",
+                    "input": "spec.json",
+                    "spec_format": "invalid"
+                })),
+                id: Some(json!(10)),
+            })
+            .to_request();
+        let resp_bad_fmt: RpcResponse = test::call_and_read_body_json(&app, req_bad_fmt).await;
+        assert_eq!(resp_bad_fmt.error.map(|e| e.code), Some(-32602));
+
         // 2. Disallowed target_language (path traversal attempt)
         let req_bad_target = test::TestRequest::post()
             .uri("/rpc")
@@ -720,7 +866,12 @@ mod tests {
                     "target_language": "rust",
                     "input": "spec.json",
                     "no_imports": true,
-                    "no_wrapping": true
+                    "no_wrapping": true,
+                    "spec_format": "openapi",
+                    "target": "to_sdk_cli",
+                    "mcp": true,
+                    "framework": "actix",
+                    "orm": "diesel"
                 })),
                 id: Some(json!(3)),
             })
@@ -771,8 +922,7 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_default_docs_json_executor_native_and_wasm(
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    async fn test_default_docs_json_executor_native_and_wasm() -> Result<(), CddGatewayError> {
         use std::io::Write;
         #[cfg(unix)]
         use std::os::unix::fs::PermissionsExt;
@@ -826,12 +976,18 @@ echo 'not-json'"
             input: "Cargo.toml".into(),
             no_imports: true,
             no_wrapping: true,
+            spec_format: Some("swagger".into()),
+            target: Some("to_docs_json".into()),
+            mcp: Some(true),
+            framework: Some("actix".into()),
+            orm: Some("diesel".into()),
         };
         let params_no_flags = ToDocsJsonParams {
             target_language: "rust".into(),
             input: "Cargo.toml".into(),
             no_imports: false,
             no_wrapping: false,
+            ..Default::default()
         };
 
         let res_ok = exec
@@ -868,6 +1024,7 @@ echo 'not-json'"
             input: "/nonexistent/spec.json".into(),
             no_imports: true,
             no_wrapping: true,
+            ..Default::default()
         };
         assert!(default_exec
             .execute("cdd-rust", &bad_wasm_params, ExecutionMode::Wasm)
@@ -878,6 +1035,7 @@ echo 'not-json'"
             input: "/nonexistent/spec.json".into(),
             no_imports: false,
             no_wrapping: false,
+            ..Default::default()
         };
         assert!(default_exec
             .execute("cdd-rust", &bad_wasm_no_flags, ExecutionMode::Wasm)
@@ -916,6 +1074,13 @@ echo 'not-json'"
                 github_id: None,
                 name: "repo1".into(),
                 description: None,
+                github_org_name: String::new(),
+                topology_mode: "monorepo".into(),
+                target_languages_json: "[]".into(),
+                language_options_json: "{}".into(),
+                release_registries_json: "[]".into(),
+                enable_pgp_signing: false,
+                docs_config_json: "{}".into(),
             }))
         });
         repo.expect_get_repository()
@@ -961,6 +1126,13 @@ echo 'not-json'"
                     github_id: None,
                     name,
                     description: None,
+                    github_org_name: String::new(),
+                    topology_mode: "monorepo".into(),
+                    target_languages_json: "[]".into(),
+                    language_options_json: "{}".into(),
+                    release_registries_json: "[]".into(),
+                    enable_pgp_signing: false,
+                    docs_config_json: "{}".into(),
                 })
             });
         repo.expect_create_repository()

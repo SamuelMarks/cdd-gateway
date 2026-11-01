@@ -1,18 +1,19 @@
 #![deny(missing_docs, clippy::missing_docs_in_private_items)]
-//! Integration tests for repository CRUD, GitHub ID upserts, and connection pool errors.
+//! Integration tests for repository CRUD, topology metadata, GitHub ID upserts, and connection pool errors.
 
+use crate::db::models::{RepositoryConfigMetadata, TargetLanguage, TopologyMode};
 use crate::db::repository::CddRepository;
 use crate::db::tests::setup_test_db;
 use crate::error::CddGatewayError;
 use uuid::Uuid;
 
-/// Verifies creating a repository and retrieving it by its primary key ID.
+/// Verifies creating a repository (both default and with topology config) and retrieving it by its primary key ID.
 #[tokio::test]
 async fn test_create_and_get_repository() -> Result<(), CddGatewayError> {
     let repo = setup_test_db()?;
 
     let login = format!("org_{}", Uuid::new_v4());
-    let org = repo.create_organization(None, login, None).await?;
+    let org = repo.create_organization(None, login.clone(), None).await?;
 
     let repo_name = format!("repo_{}", Uuid::new_v4());
     let created_repo = repo
@@ -32,6 +33,34 @@ async fn test_create_and_get_repository() -> Result<(), CddGatewayError> {
         .ok_or_else(|| CddGatewayError::NotFound("repo not found".to_string()))?;
     assert_eq!(found_repo.id, created_repo.id);
     assert_eq!(found_repo.name, repo_name);
+
+    let custom_name = format!("repo_cfg_{}", Uuid::new_v4());
+    let meta = RepositoryConfigMetadata {
+        github_org_name: login,
+        topology_mode: TopologyMode::Polyrepo,
+        target_languages: vec![TargetLanguage::Rust],
+        enable_pgp_signing: true,
+        ..Default::default()
+    };
+    let cfg_repo = repo
+        .create_repository_with_config(org.id, None, custom_name.clone(), None, meta.clone())
+        .await?;
+    assert_eq!(cfg_repo.name, custom_name);
+    assert_eq!(cfg_repo.topology_mode, "polyrepo");
+    assert!(cfg_repo.enable_pgp_signing);
+
+    let updated_name = format!("{custom_name}_patched");
+    let patched_repo = repo
+        .update_repository_with_config(
+            cfg_repo.id,
+            updated_name.clone(),
+            Some("Patched".to_string()),
+            meta,
+        )
+        .await?;
+    assert_eq!(patched_repo.name, updated_name);
+    assert_eq!(patched_repo.description.as_deref(), Some("Patched"));
+
     Ok(())
 }
 

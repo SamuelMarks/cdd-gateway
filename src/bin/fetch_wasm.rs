@@ -319,7 +319,7 @@ mod tests {
         assert_eq!(res1, Some(("http://found-wasm".to_string(), false)));
         m1.delete();
 
-        // 2. Found ZIP via API
+        // 2. Found ZIP via API (both exact zip_file and fallback "cdd-csharp-wasm.zip")
         let mut m2 = server.mock(|when, then| {
             when.method(GET)
                 .path("/repos/offscale/cdd-c/releases/latest");
@@ -341,7 +341,31 @@ mod tests {
         assert_eq!(res2, Some(("http://found-zip".to_string(), true)));
         m2.delete();
 
-        // 3. Fallback to direct WASM HEAD
+        let mut m2_csharp = server.mock(|when, then| {
+            when.method(GET)
+                .path("/repos/offscale/cdd-c/releases/latest");
+            then.status(200).json_body(serde_json::json!({
+                "assets": [
+                    { "name": "cdd-csharp-wasm.zip", "browser_download_url": "http://found-csharp-zip" }
+                ]
+            }));
+        });
+        let res2_csharp = get_github_release_url(
+            &client,
+            repo,
+            wasm_file,
+            zip_file,
+            &server.base_url(),
+            &server.base_url(),
+        )
+        .await;
+        assert_eq!(
+            res2_csharp,
+            Some(("http://found-csharp-zip".to_string(), true))
+        );
+        m2_csharp.delete();
+
+        // 3. Fallback to direct WASM HEAD (200 OK and 302 Redirect)
         let _m_api_404 = server.mock(|when, then| {
             when.method(GET)
                 .path("/repos/offscale/cdd-c/releases/latest");
@@ -373,7 +397,24 @@ mod tests {
         );
         m_head_wasm.delete();
 
-        // 4. Fallback to direct ZIP HEAD
+        let mut m_head_wasm_302 = server.mock(|when, then| {
+            when.method(HEAD)
+                .path("/offscale/cdd-c/releases/latest/download/cdd-c.wasm");
+            then.status(302);
+        });
+        let res3_redirect = get_github_release_url(
+            &client,
+            repo,
+            wasm_file,
+            zip_file,
+            &server.base_url(),
+            &server.base_url(),
+        )
+        .await;
+        assert!(res3_redirect.is_some());
+        m_head_wasm_302.delete();
+
+        // 4. Fallback to direct ZIP HEAD (302 Redirect and 200 OK)
         let mut m_head_wasm_404 = server.mock(|when, then| {
             when.method(HEAD)
                 .path("/offscale/cdd-c/releases/latest/download/cdd-c.wasm");
@@ -404,6 +445,23 @@ mod tests {
             ))
         );
         m_head_zip.delete();
+
+        let mut m_head_zip_200 = server.mock(|when, then| {
+            when.method(HEAD)
+                .path("/offscale/cdd-c/releases/latest/download/cdd-c-wasm.zip");
+            then.status(200);
+        });
+        let res4_200 = get_github_release_url(
+            &client,
+            repo,
+            wasm_file,
+            zip_file,
+            &server.base_url(),
+            &server.base_url(),
+        )
+        .await;
+        assert!(res4_200.is_some());
+        m_head_zip_200.delete();
 
         // 5. None when all fail
         let _m_head_zip_404 = server.mock(|when, then| {
@@ -454,7 +512,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_fetch_all_wasm_and_extract_zip() -> Result<(), Box<dyn std::error::Error>> {
+    async fn test_fetch_all_wasm_and_extract_zip() -> Result<(), CddGatewayError> {
         let server = MockServer::start();
         let client = Client::new();
 

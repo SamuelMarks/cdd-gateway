@@ -1,5 +1,5 @@
 #![deny(missing_docs, clippy::missing_docs_in_private_items)]
-#![allow(clippy::needless_for_each)]
+#![allow(clippy::needless_for_each, clippy::too_long_first_doc_paragraph)]
 //! HTTP API routing, OpenAPI 3.0 specification, Swagger UI, and health/version endpoints.
 
 /// Authentication endpoints (`/auth/*`).
@@ -41,6 +41,7 @@ pub struct VersionResponse {
 }
 
 /// `OpenAPI` 3.0 specification generator for `cdd-gateway`.
+#[allow(clippy::too_long_first_doc_paragraph)]
 #[derive(OpenApi)]
 #[openapi(
     paths(
@@ -49,8 +50,17 @@ pub struct VersionResponse {
         auth::register,
         auth::login_password,
         auth::login_github,
+        auth::login_google,
+        auth::get_me,
+        auth::connect_github,
+        auth::connect_google,
+        auth::connect_password,
+        auth::disconnect_provider,
         orgs::create_org,
         repos::create_repo,
+        repos::update_repo,
+        github::list_github_orgs,
+        github::provision_github_repos,
         github::sync_github_data,
         github::webhook_receiver,
         github::create_release,
@@ -65,9 +75,15 @@ pub struct VersionResponse {
             auth::AuthResponse,
             auth::LoginPayload,
             auth::OAuthPayload,
+            auth::GoogleOAuthPayload,
+            auth::ConnectPasswordPayload,
+            auth::UserProfileResponse,
             auth::RegisterPayload,
             orgs::CreateOrgPayload,
             repos::CreateRepoPayload,
+            repos::UpdateRepoPayload,
+            github::ProvisionReposPayload,
+            github::ProvisionReposResponse,
             github::SyncStatus,
             github::WebhookResponse,
             github::TriggerWorkflowPayload,
@@ -76,11 +92,19 @@ pub struct VersionResponse {
             rpc::RpcRequest,
             rpc::RpcResponse,
             rpc::RpcError,
+            rpc::ToDocsJsonParams,
+            crate::mcp::McpGenerateSdkArguments,
+            crate::github::models::GitHubOrg,
             crate::db::models::User,
             crate::db::models::Organization,
             crate::db::models::Repository,
             crate::db::models::Release,
             crate::db::models::OrgRole,
+            crate::db::models::TopologyMode,
+            crate::db::models::TargetLanguage,
+            crate::db::models::LanguageOptionConfig,
+            crate::db::models::DocsConfig,
+            crate::db::models::RepositoryConfigMetadata,
         )
     ),
     modifiers(&SecurityAddon),
@@ -159,7 +183,7 @@ pub async fn version() -> impl Responder {
         "cdd-swift",
         "cdd-ts",
     ] {
-        ecosystem.insert((*tool).to_string(), "0.0.1".to_string());
+        ecosystem.insert((*tool).to_string(), env!("CARGO_PKG_VERSION").to_string());
     }
 
     HttpResponse::Ok().json(VersionResponse {
@@ -211,7 +235,7 @@ mod tests {
         let app = test::init_service(App::new().route("/version", web::get().to(version))).await;
         let req = test::TestRequest::get().uri("/version").to_request();
         let resp: VersionResponse = test::call_and_read_body_json(&app, req).await;
-        assert_eq!(resp.gateway, "0.0.1");
+        assert_eq!(resp.gateway, "0.0.5");
         assert!(resp.ecosystem.contains_key("cdd-rust"));
     }
 

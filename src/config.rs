@@ -53,6 +53,18 @@ pub struct AppConfig {
     /// Base URL for GitHub HTML / OAuth endpoints (env: `CDD__GITHUB_HTML_BASE_URL`).
     #[serde(default = "default_github_html_base_url")]
     pub github_html_base_url: String,
+    /// Google OAuth 2.0 client ID (env: `CDD__GOOGLE_CLIENT_ID`).
+    #[serde(default = "default_google_client_id")]
+    pub google_client_id: String,
+    /// Google OAuth 2.0 client secret (env: `CDD__GOOGLE_CLIENT_SECRET`).
+    #[serde(default = "default_google_client_secret")]
+    pub google_client_secret: String,
+    /// Google OAuth 2.0 token exchange URL (env: `CDD__GOOGLE_TOKEN_URL`).
+    #[serde(default = "default_google_token_url")]
+    pub google_token_url: String,
+    /// Google OAuth 2.0 `UserInfo` endpoint URL (env: `CDD__GOOGLE_USERINFO_URL`).
+    #[serde(default = "default_google_userinfo_url")]
+    pub google_userinfo_url: String,
     /// Maximum number of requests allowed per client IP within the rate-limit window
     /// (env: `CDD__RATE_LIMIT_MAX_REQUESTS`).
     #[serde(default = "default_rate_limit_max_requests")]
@@ -99,6 +111,26 @@ fn default_github_html_base_url() -> String {
     "https://github.com".to_string()
 }
 
+/// Returns the default Google OAuth 2.0 client ID.
+fn default_google_client_id() -> String {
+    "google_client_id".to_string()
+}
+
+/// Returns the default Google OAuth 2.0 client secret.
+fn default_google_client_secret() -> String {
+    "google_client_secret".to_string()
+}
+
+/// Returns the default Google OAuth 2.0 token endpoint URL.
+fn default_google_token_url() -> String {
+    "https://oauth2.googleapis.com/token".to_string()
+}
+
+/// Returns the default Google OAuth 2.0 `UserInfo` endpoint URL.
+fn default_google_userinfo_url() -> String {
+    "https://www.googleapis.com/oauth2/v3/userinfo".to_string()
+}
+
 /// Returns the default maximum requests per rate-limit window.
 const fn default_rate_limit_max_requests() -> usize {
     100
@@ -125,6 +157,10 @@ impl Default for AppConfig {
             github_client_secret: default_github_client_secret(),
             github_api_base_url: default_github_api_base_url(),
             github_html_base_url: default_github_html_base_url(),
+            google_client_id: default_google_client_id(),
+            google_client_secret: default_google_client_secret(),
+            google_token_url: default_google_token_url(),
+            google_userinfo_url: default_google_userinfo_url(),
             rate_limit_max_requests: default_rate_limit_max_requests(),
             rate_limit_window_secs: default_rate_limit_window_secs(),
             execution_mode: ExecutionMode::Native,
@@ -163,6 +199,10 @@ impl AppConfig {
             .set_default("github_client_secret", "github_client_secret")?
             .set_default("github_api_base_url", "https://api.github.com")?
             .set_default("github_html_base_url", "https://github.com")?
+            .set_default("google_client_id", "google_client_id")?
+            .set_default("google_client_secret", "google_client_secret")?
+            .set_default("google_token_url", "https://oauth2.googleapis.com/token")?
+            .set_default("google_userinfo_url", default_google_userinfo_url())?
             .set_default("rate_limit_max_requests", 100_i64)?
             .set_default("rate_limit_window_secs", 60_i64)?
             .set_default("execution_mode", "native")?
@@ -185,12 +225,13 @@ impl AppConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::CddGatewayError;
     use std::sync::Mutex;
 
     static ENV_MUTEX: std::sync::LazyLock<Mutex<()>> = std::sync::LazyLock::new(|| Mutex::new(()));
 
     #[test]
-    fn test_config_env_overrides() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_config_env_overrides() -> Result<(), CddGatewayError> {
         let _lock = ENV_MUTEX
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -242,7 +283,7 @@ mod tests {
     }
 
     #[test]
-    fn test_config_load_with_file_path() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_config_load_with_file_path() -> Result<(), CddGatewayError> {
         use std::io::Write;
         let _lock = ENV_MUTEX
             .lock()
@@ -272,7 +313,7 @@ mod tests {
     }
 
     #[test]
-    fn test_config_derives() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_config_derives() -> Result<(), CddGatewayError> {
         let _lock = ENV_MUTEX
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -289,6 +330,19 @@ mod tests {
 
         let de: AppConfig = serde_json::from_str(&ser)?;
         assert_eq!(de.server_bind, "0.0.0.0:8080");
+
+        let minimal_json = r#"{"database_url":"db","server_bind":"sb","jwt_secret":"js","webhook_secret":"ws","control_plane_url":"cp","docs_ui_url":"du","web_ui_url":"wu"}"#;
+        let de_min: AppConfig = serde_json::from_str(minimal_json)?;
+        assert_eq!(de_min.google_client_id, "google_client_id");
+        assert_eq!(de_min.google_client_secret, "google_client_secret");
+        assert_eq!(
+            de_min.google_token_url,
+            "https://oauth2.googleapis.com/token"
+        );
+        assert_eq!(
+            de_min.google_userinfo_url,
+            "https://www.googleapis.com/oauth2/v3/userinfo"
+        );
 
         Ok(())
     }
@@ -307,6 +361,13 @@ mod tests {
         assert_eq!(cfg.github_client_secret, "github_client_secret");
         assert_eq!(cfg.github_api_base_url, "https://api.github.com");
         assert_eq!(cfg.github_html_base_url, "https://github.com");
+        assert_eq!(cfg.google_client_id, "google_client_id");
+        assert_eq!(cfg.google_client_secret, "google_client_secret");
+        assert_eq!(cfg.google_token_url, "https://oauth2.googleapis.com/token");
+        assert_eq!(
+            cfg.google_userinfo_url,
+            "https://www.googleapis.com/oauth2/v3/userinfo"
+        );
         assert_eq!(cfg.rate_limit_max_requests, 100);
         assert_eq!(cfg.rate_limit_window_secs, 60);
         assert_eq!(cfg.execution_mode, ExecutionMode::Native);

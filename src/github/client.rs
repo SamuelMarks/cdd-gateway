@@ -74,6 +74,70 @@ pub trait GitHubClient: Send + Sync {
     /// * [`CddGatewayError`] - If the request fails or returns a non-success status.
     async fn list_repos(&self, token: &str, org: &str) -> Result<Vec<GitHubRepo>, CddGatewayError>;
 
+    /// Fetches a single GitHub repository (`GET /repos/{owner}/{repo}`), returning `Ok(None)` on `404 Not Found`.
+    ///
+    /// # Arguments
+    /// * `token` - GitHub OAuth or personal access token.
+    /// * `owner` - Repository owner or organization login.
+    /// * `repo` - Repository name.
+    ///
+    /// # Returns
+    /// * `Ok(Some(GitHubRepo))` - If the repository exists on GitHub.
+    /// * `Ok(None)` - If GitHub responds with `404 Not Found`.
+    ///
+    /// # Errors
+    /// * [`CddGatewayError`] - If the request fails or returns another non-success status.
+    async fn get_repo(
+        &self,
+        token: &str,
+        owner: &str,
+        repo: &str,
+    ) -> Result<Option<GitHubRepo>, CddGatewayError>;
+
+    /// Creates a new repository inside a GitHub organization (`POST /orgs/{org}/repos`).
+    ///
+    /// # Arguments
+    /// * `token` - GitHub OAuth or personal access token.
+    /// * `org` - Organization login handle (`${GITHUB_ORG_NAME}`).
+    /// * `name` - Repository name.
+    /// * `description` - Optional repository description.
+    /// * `private` - Whether the created repository should be private.
+    ///
+    /// # Returns
+    /// * `Ok(GitHubRepo)` - The created GitHub repository metadata.
+    ///
+    /// # Errors
+    /// * [`CddGatewayError`] - If the request fails or returns a non-success status.
+    async fn create_org_repo(
+        &self,
+        token: &str,
+        org: &str,
+        name: &str,
+        description: Option<String>,
+        private: bool,
+    ) -> Result<GitHubRepo, CddGatewayError>;
+
+    /// Creates a new repository under the authenticated user's personal namespace (`POST /user/repos`).
+    ///
+    /// # Arguments
+    /// * `token` - GitHub OAuth or personal access token.
+    /// * `name` - Repository name.
+    /// * `description` - Optional repository description.
+    /// * `private` - Whether the created repository should be private.
+    ///
+    /// # Returns
+    /// * `Ok(GitHubRepo)` - The created GitHub repository metadata.
+    ///
+    /// # Errors
+    /// * [`CddGatewayError`] - If the request fails or returns a non-success status.
+    async fn create_user_repo(
+        &self,
+        token: &str,
+        name: &str,
+        description: Option<String>,
+        private: bool,
+    ) -> Result<GitHubRepo, CddGatewayError>;
+
     /// Creates a new release on a repository (`POST /repos/{owner}/{repo}/releases`).
     ///
     /// # Arguments
@@ -197,7 +261,9 @@ impl ReqwestGitHubClient {
     /// # Errors
     /// * [`CddGatewayError::Http`] - If building the underlying `reqwest::Client` fails.
     pub fn new(client_id: String, client_secret: String) -> Result<Self, CddGatewayError> {
-        let client = Client::builder().user_agent("cdd-gateway/0.0.1").build()?;
+        let client = Client::builder()
+            .user_agent(concat!("cdd-gateway/", env!("CARGO_PKG_VERSION")))
+            .build()?;
         Ok(Self {
             client,
             client_id,
@@ -228,6 +294,18 @@ struct ExchangeResponse {
     error: Option<String>,
     /// Detailed error description returned by GitHub OAuth, if failed.
     error_description: Option<String>,
+}
+
+/// Request body sent to `POST /orgs/{org}/repos` or `POST /user/repos`.
+#[derive(Serialize)]
+struct CreateRepoReq<'a> {
+    /// Repository name.
+    name: &'a str,
+    /// Optional repository description.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
+    /// Whether the repository is private.
+    private: bool,
 }
 
 /// Request body sent to `POST /repos/{owner}/{repo}/releases`.
@@ -343,6 +421,84 @@ impl GitHubClient for ReqwestGitHubClient {
             .error_for_status()?;
 
         Ok(res.json::<Vec<GitHubRepo>>().await?)
+    }
+
+    async fn get_repo(
+        &self,
+        token: &str,
+        owner: &str,
+        repo: &str,
+    ) -> Result<Option<GitHubRepo>, CddGatewayError> {
+        let url = format!("{}/repos/{owner}/{repo}", self.api_base_url);
+        let res = self
+            .client
+            .get(&url)
+            .bearer_auth(token)
+            .header("Accept", "application/vnd.github.v3+json")
+            .send()
+            .await?;
+
+        if res.status() == reqwest::StatusCode::NOT_FOUND {
+            return Ok(None);
+        }
+
+        let res = res.error_for_status()?;
+        Ok(Some(res.json::<GitHubRepo>().await?))
+    }
+
+    async fn create_org_repo(
+        &self,
+        token: &str,
+        org: &str,
+        name: &str,
+        description: Option<String>,
+        private: bool,
+    ) -> Result<GitHubRepo, CddGatewayError> {
+        let url = format!("{}/orgs/{org}/repos", self.api_base_url);
+        let req_body = CreateRepoReq {
+            name,
+            description,
+            private,
+        };
+
+        let res = self
+            .client
+            .post(&url)
+            .bearer_auth(token)
+            .header("Accept", "application/vnd.github.v3+json")
+            .json(&req_body)
+            .send()
+            .await?
+            .error_for_status()?;
+
+        Ok(res.json::<GitHubRepo>().await?)
+    }
+
+    async fn create_user_repo(
+        &self,
+        token: &str,
+        name: &str,
+        description: Option<String>,
+        private: bool,
+    ) -> Result<GitHubRepo, CddGatewayError> {
+        let url = format!("{}/user/repos", self.api_base_url);
+        let req_body = CreateRepoReq {
+            name,
+            description,
+            private,
+        };
+
+        let res = self
+            .client
+            .post(&url)
+            .bearer_auth(token)
+            .header("Accept", "application/vnd.github.v3+json")
+            .json(&req_body)
+            .send()
+            .await?
+            .error_for_status()?;
+
+        Ok(res.json::<GitHubRepo>().await?)
     }
 
     async fn create_release(
@@ -634,11 +790,120 @@ mod tests {
         assert!(client.list_repos("tok", "my-org").await.is_err());
         m_repos_bad.delete();
 
-        let _m_repos_500 = server.mock(|when, then| {
+        let mut m_repos_500 = server.mock(|when, then| {
             when.method(GET).path("/orgs/my-org/repos");
             then.status(500);
         });
         assert!(client.list_repos("tok", "my-org").await.is_err());
+        m_repos_500.delete();
+
+        // get_repo (200, 404, bad json, 500)
+        let mut m_get_repo = server.mock(|when, then| {
+            when.method(GET).path("/repos/my-org/my-repo");
+            then.status(200).json_body(serde_json::json!({
+                "id": 200,
+                "name": "my-repo",
+                "full_name": "my-org/my-repo",
+                "description": null
+            }));
+        });
+        let found_repo = client.get_repo("tok", "my-org", "my-repo").await?;
+        assert!(found_repo.is_some());
+        m_get_repo.delete();
+
+        let mut m_get_repo_404 = server.mock(|when, then| {
+            when.method(GET).path("/repos/my-org/missing");
+            then.status(404);
+        });
+        let missing_repo = client.get_repo("tok", "my-org", "missing").await?;
+        assert!(missing_repo.is_none());
+        m_get_repo_404.delete();
+
+        let mut m_get_repo_bad = server.mock(|when, then| {
+            when.method(GET).path("/repos/my-org/bad");
+            then.status(200).body("bad json");
+        });
+        assert!(client.get_repo("tok", "my-org", "bad").await.is_err());
+        m_get_repo_bad.delete();
+
+        let mut m_get_repo_500 = server.mock(|when, then| {
+            when.method(GET).path("/repos/my-org/err");
+            then.status(500);
+        });
+        assert!(client.get_repo("tok", "my-org", "err").await.is_err());
+        m_get_repo_500.delete();
+
+        // create_org_repo
+        let mut m_create_org = server.mock(|when, then| {
+            when.method(POST).path("/orgs/my-org/repos");
+            then.status(201).json_body(serde_json::json!({
+                "id": 201,
+                "name": "my-org-sdk",
+                "full_name": "my-org/my-org-sdk",
+                "description": "SDK"
+            }));
+        });
+        let created_org_repo = client
+            .create_org_repo("tok", "my-org", "my-org-sdk", Some("SDK".into()), false)
+            .await?;
+        assert_eq!(created_org_repo.id, 201);
+        assert_eq!(created_org_repo.name, "my-org-sdk");
+        m_create_org.delete();
+
+        let mut m_create_org_bad = server.mock(|when, then| {
+            when.method(POST).path("/orgs/my-org/repos");
+            then.status(200).body("bad json");
+        });
+        assert!(client
+            .create_org_repo("tok", "my-org", "my-org-sdk", None, false)
+            .await
+            .is_err());
+        m_create_org_bad.delete();
+
+        let _m_create_org_500 = server.mock(|when, then| {
+            when.method(POST).path("/orgs/my-org/repos");
+            then.status(500);
+        });
+        assert!(client
+            .create_org_repo("tok", "my-org", "my-org-sdk", None, false)
+            .await
+            .is_err());
+
+        // create_user_repo
+        let mut m_create_user = server.mock(|when, then| {
+            when.method(POST).path("/user/repos");
+            then.status(201).json_body(serde_json::json!({
+                "id": 202,
+                "name": "octocat-sdk",
+                "full_name": "octocat/octocat-sdk",
+                "description": "User SDK"
+            }));
+        });
+        let created_user_repo = client
+            .create_user_repo("tok", "octocat-sdk", Some("User SDK".into()), true)
+            .await?;
+        assert_eq!(created_user_repo.id, 202);
+        assert_eq!(created_user_repo.name, "octocat-sdk");
+        m_create_user.delete();
+
+        let mut m_create_user_bad = server.mock(|when, then| {
+            when.method(POST).path("/user/repos");
+            then.status(200).body("bad json");
+        });
+        assert!(client
+            .create_user_repo("tok", "octocat-sdk", None, false)
+            .await
+            .is_err());
+        m_create_user_bad.delete();
+
+        let _m_create_user_500 = server.mock(|when, then| {
+            when.method(POST).path("/user/repos");
+            then.status(500);
+        });
+        assert!(client
+            .create_user_repo("tok", "octocat-sdk", None, false)
+            .await
+            .is_err());
 
         Ok(())
     }
